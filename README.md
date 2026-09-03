@@ -63,6 +63,7 @@ Try the interactive toy demo to see the algorithm in action:
 - [Quick Start (Inference)](#quick-start-inference)
 - [Pretrained Models](#pretrained-models)
 - [Environment Setup](#environment-setup)
+- [Local Mac Training](#local-mac-training)
 - [FID Evaluation](#fid-evaluation)
 - [Training](#training)
 - [Checkpoints and Logs](#checkpoints-and-logs)
@@ -162,6 +163,16 @@ python -m dataset.latent \
 ```
 
 This encodes ImageNet images through the VAE and writes `.pt` files to `/path/to/latent_cache/{train,val}/`. After building the cache, update `IMAGENET_CACHE_PATH` in `utils/env.py`.
+
+## Local Mac Training
+
+The repository also includes isolated Apple-silicon workflows for the authors'
+toy notebook and for bounded generator-training smoke tests on fake data or
+resized CIFAR-10. These additions do not modify the original ImageNet/TPU
+configs under `configs/gen/`.
+
+See [Local Training](docs/local-training.md) for exact setup commands, dataset
+CLI overrides, artifact paths, and the verification boundary.
 
 ## FID Evaluation
 
