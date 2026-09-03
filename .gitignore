@@ -2,5 +2,10 @@ runs/
 data/
 wandb/
 .worktrees/
+.venv-toy/
+.venv-training/
+outputs/
+work/
 __pycache__/
+.pytest_cache/
 *.pyc
