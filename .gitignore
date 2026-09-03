@@ -1,5 +1,5 @@
 runs/
-data/
+/data/
 wandb/
 .worktrees/
 .venv-toy/

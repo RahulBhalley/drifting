@@ -635,7 +635,7 @@ git commit -m "feat: port drifting loss and memory banks"
 - Produces: `VAECodec.encode(images, noise=None) -> Tensor` and `.decode(latents) -> Tensor`.
 - Produces: `build_latent_cache(config) -> CacheManifest`.
 
-- [ ] **Step 1: Write dataset dispatch and preprocessing tests**
+- [x] **Step 1: Write dataset dispatch and preprocessing tests**
 
 ```python
 @pytest.mark.parametrize("source", ["fake", "cifar10", "imagenet"])
@@ -646,38 +646,38 @@ def test_dataset_pipeline_returns_nchw(source, fixture_root):
     assert batch.labels.dtype == torch.int64
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_data.py tests/torch/test_latent_cache.py tests/parity/test_preprocessing.py`
 
 Expected: data modules missing.
 
-- [ ] **Step 3: Port loaders and deterministic transforms**
+- [x] **Step 3: Port loaders and deterministic transforms**
 
 Preserve ADM center crop, resize interpolation, random-resized-crop parameters,
 flip policy, normalization, split shuffle/drop-last behavior, path overrides,
 worker seeding, and legacy latent-cache loading. Use a stateful sampler with
 serializable epoch/cursor state.
 
-- [ ] **Step 4: Implement native PyTorch VAE codec**
+- [x] **Step 4: Implement native PyTorch VAE codec**
 
 Use Diffusers `AutoencoderKL` with the same model revision, posterior sampling,
 latent scaling, flips, pixel range, and decode clamp as the JAX path. Allow
 explicit posterior noise for parity.
 
-- [ ] **Step 5: Implement atomic cache building and manifesting**
+- [x] **Step 5: Implement atomic cache building and manifesting**
 
 Write each `.pt` entry to a same-directory temporary file and publish with
 `os.replace`. Record split counts, relative paths, source metadata, VAE
 revision, dtype, shape, and hashes in the cache manifest. Resume skips only
 entries whose manifest and hash validate.
 
-- [ ] **Step 6: Compare fixed preprocessing and VAE fixtures**
+- [x] **Step 6: Compare fixed preprocessing and VAE fixtures**
 
 Compare crop pixels exactly, normalized tensors after layout conversion, latent
 moments, explicit-noise latent samples, and decoded images.
 
-- [ ] **Step 7: Run tests and commit**
+- [x] **Step 7: Run tests and commit**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_data.py tests/torch/test_latent_cache.py tests/parity/test_preprocessing.py`
 
