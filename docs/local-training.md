@@ -163,3 +163,17 @@ Each JAX work directory contains:
 The one-step configurations are intentionally small. Increase model, bank, and
 batch sizes only after confirming the available memory and intended scientific
 comparison.
+
+## Pretrained Inference Regression
+
+The separate inference environment can be recreated and checked with:
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements-macos-inference.txt
+JAX_PLATFORMS=cpu .venv/bin/python local_inference_smoke.py
+```
+
+The smoke runner loads the official `hf://pixel_B_sota` artifact, generates
+ImageNet class 95 at 256×256, performs a second warm inference, and writes PNG
+and JSON results under `outputs/inference-smoke/`.
