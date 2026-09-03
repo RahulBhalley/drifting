@@ -46,4 +46,8 @@ class GeneratorTrainState:
                 self.ema[name].copy_(source)
 
 
-__all__ = ["GeneratorTrainState"]
+class MAETrainState(GeneratorTrainState):
+    """The same exact-resume state contract specialized by name for MAE."""
+
+
+__all__ = ["GeneratorTrainState", "MAETrainState"]

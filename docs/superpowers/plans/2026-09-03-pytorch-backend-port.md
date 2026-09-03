@@ -802,7 +802,7 @@ git commit -m "feat: add pytorch generator training and resume"
 - Produces: `evaluate_mae(state, loader, options) -> dict[str, float]`.
 - Produces: `train_mae(config, runtime, workdir) -> TrainingSummary`.
 
-- [ ] **Step 1: Write MAE transition and finetune-ramp tests**
+- [x] **Step 1: Write MAE transition and finetune-ramp tests**
 
 ```python
 def test_classifier_weight_ramp():
@@ -810,25 +810,25 @@ def test_classifier_weight_ramp():
     assert classifier_weight(99, total=100, finetune_steps=4, warmup=2, target=0.1) == 0.1
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_mae_step.py tests/torch/test_mae_resume.py tests/parity/test_mae_step.py`
 
 Expected: MAE trainer missing.
 
-- [ ] **Step 3: Implement MAE train/evaluation loops**
+- [x] **Step 3: Implement MAE train/evaluation loops**
 
 Preserve masking ranges, reconstruction/classification metrics, no-mask
 evaluation, EMA/non-EMA evaluation, final classifier finetune ramp, profiling,
 logging, checkpoint cadence, and EMA artifact export.
 
-- [ ] **Step 4: Compare one optimizer transition and resume**
+- [x] **Step 4: Compare one optimizer transition and resume**
 
 Use converted tiny weights, an explicit mask, identical labels/images and AdamW
 state. Compare loss components, gradients, updated weights, EMA, and three-step
 uninterrupted versus resumed state.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_mae_step.py tests/torch/test_mae_resume.py tests/parity/test_mae_step.py`
 

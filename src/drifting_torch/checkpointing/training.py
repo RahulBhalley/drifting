@@ -72,7 +72,7 @@ def save_training_state(
     state: GeneratorTrainState,
     *,
     sampler,
-    banks: tuple[ClassMemoryBank, ClassMemoryBank],
+    banks: tuple[ClassMemoryBank, ClassMemoryBank] | None = None,
     config: Any,
 ) -> Path:
     path = Path(destination)
@@ -88,8 +88,8 @@ def save_training_state(
         "generator_state": state.generator.get_state(),
         "rng": _rng_state(),
         "sampler": sampler.state_dict(),
-        "positive_bank": banks[0].state_dict(),
-        "negative_bank": banks[1].state_dict(),
+        "positive_bank": None if banks is None else banks[0].state_dict(),
+        "negative_bank": None if banks is None else banks[1].state_dict(),
     }
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
     torch.save(payload, temporary)
@@ -102,7 +102,7 @@ def load_training_state(
     state: GeneratorTrainState,
     *,
     sampler,
-    banks: tuple[ClassMemoryBank, ClassMemoryBank],
+    banks: tuple[ClassMemoryBank, ClassMemoryBank] | None = None,
     config: Any,
 ) -> GeneratorTrainState:
     payload = torch.load(Path(source), map_location="cpu", weights_only=False)
@@ -121,8 +121,11 @@ def load_training_state(
     if state.scaler is not None and payload["scaler"] is not None:
         state.scaler.load_state_dict(payload["scaler"])
     sampler.load_state_dict(payload["sampler"])
-    banks[0].load_state_dict(payload["positive_bank"])
-    banks[1].load_state_dict(payload["negative_bank"])
+    if banks is not None:
+        if payload["positive_bank"] is None or payload["negative_bank"] is None:
+            raise ValueError("checkpoint does not contain generator memory banks")
+        banks[0].load_state_dict(payload["positive_bank"])
+        banks[1].load_state_dict(payload["negative_bank"])
     _restore_rng(payload["rng"])
     return state
 

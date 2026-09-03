@@ -7,6 +7,7 @@ from .artifact import (
     load_torch_mae,
     resolve_torch_artifact,
     save_torch_generator_artifact,
+    save_torch_mae_artifact,
 )
 from .converter import ConversionReport, convert_jax_generator, convert_jax_mae
 from .mapping import (
@@ -33,6 +34,7 @@ __all__ = [
     "map_mae_state",
     "save_training_state",
     "save_torch_generator_artifact",
+    "save_torch_mae_artifact",
     "resolve_torch_artifact",
     "trajectory_hash",
     "validate_mae_state_shapes",

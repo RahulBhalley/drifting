@@ -95,6 +95,47 @@ def save_torch_generator_artifact(
     return target
 
 
+def save_torch_mae_artifact(
+    destination: str | Path,
+    *,
+    state_dict: dict[str, torch.Tensor],
+    model_config: dict,
+    step: int,
+    ema_decay: float,
+) -> Path:
+    target = Path(destination).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.tmp-", dir=target.parent))
+    try:
+        weights = temporary / "model.safetensors"
+        save_file(
+            {name: value.detach().cpu().contiguous() for name, value in state_dict.items()},
+            weights,
+        )
+        ArtifactManifest(
+            schema_version=1,
+            kind="mae",
+            backend="torch",
+            model_config=model_config,
+            step=int(step),
+            ema_decay=float(ema_decay),
+            files={
+                "weights": ArtifactFile(
+                    path=weights.name,
+                    sha256=sha256_file(weights),
+                    size_bytes=weights.stat().st_size,
+                )
+            },
+        ).write(temporary / "manifest.json")
+        if target.exists():
+            raise FileExistsError(f"artifact destination already exists: {target}")
+        os.replace(temporary, target)
+    except BaseException:
+        shutil.rmtree(temporary, ignore_errors=True)
+        raise
+    return target
+
+
 def load_torch_generator(
     source: str | Path,
     device: torch.device | str = torch.device("cpu"),

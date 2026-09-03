@@ -10,6 +10,7 @@ from typing import Any
 import torch
 
 from drifting_torch.checkpointing import (
+    load_torch_generator,
     load_torch_mae,
     load_training_state,
     save_torch_generator_artifact,
@@ -111,6 +112,13 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
             existing[-1], state, sampler=pipeline.sampler, banks=banks, config=config
         )
         resumed_from = state.completed_steps
+    elif config.train.get("init_from", ""):
+        loaded = load_torch_generator(config.train["init_from"], device=device)
+        state.model.load_state_dict(loaded.model.state_dict(), strict=True)
+        state.ema = {
+            name: value.detach().clone()
+            for name, value in state.model.state_dict().items()
+        }
 
     forward = dict(config.train.get("forward_dict", {}))
     options = GeneratorStepOptions(

@@ -1,0 +1,62 @@
+hsdp_dim: 1
+
+logging:
+  project: local-drifting-mae-smoke
+  entity: null
+  use_wandb: false
+  log_every_k: 1
+
+dataset:
+  source: fake
+  resolution: 16
+  use_aug: false
+  use_latent: false
+  use_cache: false
+  num_classes: 10
+  batch_size: 4
+  eval_batch_size: 4
+  kwargs:
+    fake_train_size: 8
+    fake_val_size: 8
+    num_workers: 0
+    pin_memory: false
+
+model:
+  base_channels: 8
+  patch_size: 4
+  dropout_prob: 0.0
+  layers: [1, 1, 1, 1]
+  in_channels: 3
+  use_bf16: false
+  input_patch_size: 1
+
+optimizer:
+  lr_schedule:
+    learning_rate: 0.001
+    warmup_steps: 0
+    lr_schedule: const
+    total_steps: 1
+  weight_decay: 0.0
+  adam_b1: 0.9
+  adam_b2: 0.95
+
+train:
+  seed: 42
+  total_steps: 1
+  save_per_step: 1
+  eval_per_step: 1
+  eval_samples: 4
+  forward_dict:
+    mask_ratio_min: 0.5
+    mask_ratio_max: 0.5
+    lambda_cls: 0.0
+  eval_forward_dict:
+    mask_ratio_min: 0.5
+    mask_ratio_max: 0.5
+    lambda_cls: 0.0
+  ema_decay: 0.9
+  keep_every: 100
+  keep_last: 1
+  finetune_last_steps: 0
+  warmup_finetune: 1
+  finetune_cls: 0.1

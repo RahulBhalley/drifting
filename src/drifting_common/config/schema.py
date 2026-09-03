@@ -154,6 +154,7 @@ class TrainingConfig(ConfigSection):
             "forward_dict",
             "keep_every",
             "keep_last",
+            "init_from",
             "loss_kwargs",
             "neg_per_sample",
             "negative_bank_size",
@@ -275,4 +276,3 @@ class ExperimentConfig:
             runtime=RuntimeConfig(_require_mapping(runtime_raw, "runtime")) if runtime_raw is not None else None,
             legacy_hsdp_dim=legacy_hsdp_dim,
         )
-

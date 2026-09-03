@@ -7,6 +7,7 @@ import argparse
 from drifting_common.config import compose_config
 
 from .training.engine import train_generator
+from .training.mae import train_mae
 
 
 def train_main(argv=None) -> None:
@@ -24,4 +25,19 @@ def train_main(argv=None) -> None:
     )
 
 
-__all__ = ["train_main"]
+def mae_main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description="Train the Drifting MAE with native PyTorch")
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--runtime", required=True)
+    parser.add_argument("--workdir", required=True)
+    parser.add_argument("--set", action="append", default=[], dest="overrides")
+    args = parser.parse_args(argv)
+    config = compose_config(args.config, args.runtime, args.overrides)
+    summary = train_mae(config, config.runtime, args.workdir)
+    print(
+        f"completed_steps={summary.completed_steps} "
+        f"checkpoint={summary.checkpoint} ema_artifact={summary.ema_artifact}"
+    )
+
+
+__all__ = ["mae_main", "train_main"]
