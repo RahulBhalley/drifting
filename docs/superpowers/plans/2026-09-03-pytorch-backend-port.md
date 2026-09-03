@@ -853,7 +853,7 @@ git commit -m "feat: add pytorch mae training"
 - Produces explicit `drifting-torch-infer` CLI.
 - Loads `hf://`, native directory, and explicitly converted JAX artifact sources.
 
-- [ ] **Step 1: Write inference request and artifact validation tests**
+- [x] **Step 1: Write inference request and artifact validation tests**
 
 ```python
 def test_inference_metadata_records_reproducibility_fields(result):
@@ -863,32 +863,32 @@ def test_inference_metadata_records_reproducibility_fields(result):
     }
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_inference.py tests/torch/test_artifact_loading.py`
 
 Expected: inference module missing.
 
-- [ ] **Step 3: Implement inference loading and execution**
+- [x] **Step 3: Implement inference loading and execution**
 
 Validate artifact hashes/configuration before construction, resolve device and
 precision explicitly, use inference mode/autocast safely, accept labels/CFG/
 temperature/seed or external noise, and write images/raw tensors/JSON metadata
 atomically.
 
-- [ ] **Step 4: Build and execute the PyTorch notebook**
+- [x] **Step 4: Build and execute the PyTorch notebook**
 
 The notebook installs the torch extra, downloads or converts an official
 artifact, generates the same label set as the JAX notebook, shows outputs, and
 records finite shape/statistics. Execute a derived copy; retain the source
 notebook unexecuted and deterministic.
 
-- [ ] **Step 5: Compare official inference outputs**
+- [x] **Step 5: Compare official inference outputs**
 
 Run explicit JAX and PyTorch commands with shared captured noise for class 95
 and a multi-label batch. Validate raw, postprocessed float, and uint8 policy.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_inference.py tests/torch/test_artifact_loading.py`
 
