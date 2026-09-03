@@ -36,7 +36,7 @@
 - Consumes: the published raw notebook URL and a Python interpreter containing the dependencies in `requirements-toy.txt`.
 - Produces: `prepare_notebook(source: Path) -> nbformat.NotebookNode`, `execute_notebook(source: Path, output: Path, kernel_name: str, timeout: int) -> Path`, and an executed notebook under `outputs/toy/`.
 
-- [ ] **Step 1: Download and hash the immutable notebook**
+- [x] **Step 1: Download and hash the immutable notebook**
 
 Run:
 
@@ -47,7 +47,7 @@ shasum -a 256 notebooks/drifting_model_demo_original.ipynb
 
 Record the digest in `notebooks/drifting_model_demo_original.sha256`. Do not modify the downloaded JSON.
 
-- [ ] **Step 2: Write a failing runner test**
+- [x] **Step 2: Write a failing runner test**
 
 Create a minimal temporary notebook containing a `%pip install` cell and a normal code cell. Assert that `prepare_notebook` leaves the source unchanged, replaces only the install cell with a markdown explanation, and preserves the normal cell.
 
@@ -65,13 +65,13 @@ def test_prepare_notebook_skips_only_colab_install_cell(tmp_path):
     assert prepared.cells[1].source == "answer = 42"
 ```
 
-- [ ] **Step 3: Run the focused test and confirm RED**
+- [x] **Step 3: Run the focused test and confirm RED**
 
 Run: `.venv/bin/python -m pytest tests/test_run_toy_notebook.py -v`
 
 Expected: collection fails because `scripts.run_toy_notebook` does not exist.
 
-- [ ] **Step 4: Implement the notebook preparation and execution helper**
+- [x] **Step 4: Implement the notebook preparation and execution helper**
 
 The CLI accepts `--source`, `--output`, `--kernel-name`, and `--timeout`. It reads the notebook, deep-copies it, converts cells whose stripped source begins with `%pip install`, `!pip install`, or `pip install` to markdown, executes with `nbclient.NotebookClient`, and writes only the derived output.
 
@@ -88,17 +88,17 @@ def prepare_notebook(source: Path) -> nbformat.NotebookNode:
     return prepared
 ```
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run: `.venv/bin/python -m pytest tests/test_run_toy_notebook.py -v`
 
 Expected: PASS.
 
-- [ ] **Step 6: Add isolated dependency and ignore declarations**
+- [x] **Step 6: Add isolated dependency and ignore declarations**
 
 `requirements-toy.txt` pins compatible versions of `torch`, `torchvision`, `einops`, `matplotlib`, `tqdm`, `jupyter`, `nbclient`, `nbformat`, and `ipykernel`. Add `.venv-toy/`, `outputs/`, `data/`, and `work/` to `.gitignore` without removing existing entries.
 
-- [ ] **Step 7: Create `.venv-toy` and execute the full notebook**
+- [x] **Step 7: Create `.venv-toy` and execute the full notebook**
 
 Run:
 
@@ -110,7 +110,7 @@ python3 -m venv .venv-toy
 
 Inspect cell outputs and assert that both Swiss-roll and checkerboard training complete with finite `(N, 2)` samples.
 
-- [ ] **Step 8: Commit the toy workflow**
+- [x] **Step 8: Commit the toy workflow**
 
 ```bash
 git add .gitignore notebooks/drifting_model_demo_original.ipynb notebooks/drifting_model_demo_original.sha256 requirements-toy.txt scripts/run_toy_notebook.py tests/test_run_toy_notebook.py
@@ -127,7 +127,7 @@ git commit -m "feat: add reproducible toy notebook training"
 - Consumes: `source`, `resolution`, `batch_size`, `split`, `num_classes`, `data_root`, `download`, `fake_size`, plus existing loader options.
 - Produces: `create_dataset_split(...) -> tuple[DataLoader, Callable, Callable]`; retains `create_imagenet_split(...)` unchanged as the ImageNet implementation.
 
-- [ ] **Step 1: Write failing fake-data behavior tests**
+- [x] **Step 1: Write failing fake-data behavior tests**
 
 Test real loader output, preprocessing, postprocessing, validation, and pixel-only constraints:
 
@@ -147,13 +147,13 @@ def test_fake_split_emits_requested_bhwc_images():
 
 Also assert unknown sources, non-positive dimensions, and fake/CIFAR with `use_latent=True` or `use_cache=True` raise `ValueError`.
 
-- [ ] **Step 2: Run focused tests and confirm RED**
+- [x] **Step 2: Run focused tests and confirm RED**
 
 Run: `.venv/bin/python -m pytest tests/test_dataset_sources.py -v`
 
 Expected: import fails because `create_dataset_split` does not exist.
 
-- [ ] **Step 3: Implement source validation and datasets**
+- [x] **Step 3: Implement source validation and datasets**
 
 Add `FakeData` and `CIFAR10` imports, a shared normalized pixel transform, and dispatch without altering `create_imagenet_split` behavior.
 
@@ -174,13 +174,13 @@ def create_dataset_split(*, source="imagenet", resolution, batch_size, split,
 
 Use distinct deterministic `FakeData` offsets for train and validation. Map CIFAR-10 `val` to torchvision's `train=False` split and resize to `resolution` before tensor conversion and normalization.
 
-- [ ] **Step 4: Verify GREEN and regression coverage**
+- [x] **Step 4: Verify GREEN and regression coverage**
 
 Run: `.venv/bin/python -m pytest tests/test_dataset_sources.py -v`
 
 Expected: all tests PASS, including an ImageNet-default dispatch test that substitutes only `_build_imagenet_dataset` to avoid requiring ImageNet.
 
-- [ ] **Step 5: Commit dataset support**
+- [x] **Step 5: Commit dataset support**
 
 ```bash
 git add dataset/dataset.py tests/test_dataset_sources.py
@@ -201,7 +201,7 @@ git commit -m "feat: add configurable local datasets"
 - Consumes: `dataset.source`, `dataset.num_classes`, local dataset kwargs, and `train.enable_eval`.
 - Produces: source-correct `dataset_name`; `train_gen(..., num_classes: int = 1000, enable_eval: bool = True)`.
 
-- [ ] **Step 1: Write failing configuration and training-contract tests**
+- [x] **Step 1: Write failing configuration and training-contract tests**
 
 Parse all YAML files and assert the two local configs are bounded and self-consistent. Test the public training-loop configuration contract via signature inspection and a helper that decides when evaluation runs.
 
@@ -218,13 +218,13 @@ def test_local_configs_disable_imagenet_evaluation():
 
 Add a behavior test asserting `_should_evaluate(step=1, total_steps=1, eval_per_step=1, enable_eval=False)` is false and the same call with `enable_eval=True` is true.
 
-- [ ] **Step 2: Run focused tests and confirm RED**
+- [x] **Step 2: Run focused tests and confirm RED**
 
 Run: `.venv/bin/python -m pytest tests/test_local_training_config.py -v`
 
 Expected: failure because local configs and `_should_evaluate` are absent.
 
-- [ ] **Step 3: Implement builder dispatch and metadata**
+- [x] **Step 3: Implement builder dispatch and metadata**
 
 Replace imports/calls of `create_imagenet_split` in `utils/model_builder.py` with `create_dataset_split`, read `dataset.source` with the ImageNet default, and forward only explicit source options.
 
@@ -243,7 +243,7 @@ train_loader, preprocess_fn, postprocess_fn = create_dataset_split(
 
 Return `dataset_name=f"{source}{resolution}"` and `num_classes=int(config.dataset.num_classes)`.
 
-- [ ] **Step 4: Implement training-loop controls**
+- [x] **Step 4: Implement training-loop controls**
 
 Add `num_classes=1000` and `enable_eval=True` parameters to `train_gen`, initialize `ArrayMemoryBank(num_classes=num_classes, ...)`, and guard all FID work through:
 
@@ -256,13 +256,13 @@ def _should_evaluate(*, step, total_steps, eval_per_step, enable_eval):
 
 Pass `model_dict.num_classes` from `main_gen` into `train_gen`.
 
-- [ ] **Step 5: Add local configurations**
+- [x] **Step 5: Add local configurations**
 
 Both configs use 16x16 RGB input, patch size 4, hidden size 64, depth 2, four heads, batch size 4, `num_workers: 0`, `use_mae: false`, `use_convnext: false`, `use_wandb: false`, `enable_eval: false`, one optimization step, and minimal positive/negative banks. The fake config uses `source: fake`; the CIFAR config uses `source: cifar10`, `data_root: data/cifar10`, and `download: true`.
 
 Add `requirements-macos-training.txt` as the macOS-compatible counterpart to the TPU-oriented upstream requirements. It includes the same JAX/Flax/Optax stack already verified locally, macOS wheels `torch==2.4.0` and `torchvision==0.19.0` without the Linux-only `+cpu` suffix, and `pytest` for verification. Do not modify `requirements.txt`.
 
-- [ ] **Step 6: Verify GREEN and upstream preservation**
+- [x] **Step 6: Verify GREEN and upstream preservation**
 
 Run:
 
@@ -273,7 +273,7 @@ git diff accd0cf --exit-code -- configs/gen notebooks/inference_demo.ipynb
 
 Expected: all tests PASS and the preservation diff exits zero.
 
-- [ ] **Step 7: Commit training integration**
+- [x] **Step 7: Commit training integration**
 
 ```bash
 git add utils/model_builder.py train.py tests/test_local_training_config.py configs/local/m1_fake_smoke.yaml configs/local/m1_cifar10_smoke.yaml requirements-macos-training.txt
@@ -291,7 +291,7 @@ git commit -m "feat: add local generator training configs"
 - Consumes: both local configs, `.venv`, `.venv-toy`, and existing `local_inference_smoke.py` when present.
 - Produces: documented commands, finite training metrics/checkpoints, verified toy outputs, and a precise reproduction-boundary report.
 
-- [ ] **Step 1: Run one-step fake-data generator training**
+- [x] **Step 1: Run one-step fake-data generator training**
 
 Run:
 
@@ -301,11 +301,11 @@ JAX_PLATFORMS=cpu .venv/bin/python main.py --gen --config configs/local/m1_fake_
 
 Require exit code zero, at least one finite `loss` value in `log/metrics.jsonl`, and a checkpoint or EMA parameters artifact.
 
-- [ ] **Step 2: Download and verify CIFAR-10 loader**
+- [x] **Step 2: Download and verify CIFAR-10 loader**
 
 Run a loader-only script through `.venv/bin/python` using `create_dataset_split(source="cifar10", resolution=16, download=True, ...)`. Require train and validation shapes `(B, 16, 16, 3)` after preprocessing.
 
-- [ ] **Step 3: Attempt bounded CIFAR-10 training**
+- [x] **Step 3: Attempt bounded CIFAR-10 training**
 
 Run:
 
@@ -315,15 +315,15 @@ JAX_PLATFORMS=cpu .venv/bin/python main.py --gen --config configs/local/m1_cifar
 
 Stop and report precisely if the 16 GB machine cannot compile or execute the configured step; do not increase resource limits or claim a benchmark result.
 
-- [ ] **Step 4: Re-run pretrained inference regression**
+- [x] **Step 4: Re-run pretrained inference regression**
 
 Run the established one-image `pixel_B_sota`, class-95, seed-0 inference smoke command. Confirm output shape `(1, 256, 256, 3)`, finite pixels, and the expected PNG/JSON artifacts.
 
-- [ ] **Step 5: Document exact local commands and boundaries**
+- [x] **Step 5: Document exact local commands and boundaries**
 
 `docs/local-training.md` documents environment creation, toy execution, fake/CIFAR config overrides, later ImageNet replacement, artifact locations, and explicitly separates observed smoke-test execution from the authors' reported ImageNet/TPU benchmark.
 
-- [ ] **Step 6: Run comprehensive verification**
+- [x] **Step 6: Run comprehensive verification**
 
 Run:
 
@@ -336,7 +336,7 @@ git diff --check
 
 Inspect the complete diff against the spec and confirm no temporary download/build directories remain outside ignored intentional environments, datasets, and outputs.
 
-- [ ] **Step 7: Commit documentation**
+- [x] **Step 7: Commit documentation**
 
 ```bash
 git add README.md docs/local-training.md
