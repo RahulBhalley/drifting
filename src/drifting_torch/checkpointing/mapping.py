@@ -151,3 +151,127 @@ def map_generator_state(
     if missing_targets:
         raise ConversionError("unmapped target parameters: " + ", ".join(sorted(missing_targets)))
     return mapped
+
+
+def _mae_leaf(module_path: str, leaf: str) -> str:
+    if leaf == "weight":
+        if module_path.endswith(("conv", "conv1", "conv2", "proj_conv", "head", "fc")):
+            leaf = "kernel"
+        else:
+            leaf = "scale"
+    return f"{module_path}/{leaf}"
+
+
+def _source_for_mae_target(target: str) -> str | None:
+    match = re.fullmatch(r"encoder\.(conv1|gn1)\.(weight|bias)", target)
+    if match:
+        module, leaf = match.groups()
+        return _mae_leaf(f"encoder/{module}", leaf)
+
+    match = re.fullmatch(
+        r"encoder\.stages\.(\d+)\.(\d+)\.(conv1|conv2|gn1|gn2|proj_conv|proj_gn)\.(weight|bias)",
+        target,
+    )
+    if match:
+        stage, block, module, leaf = match.groups()
+        return _mae_leaf(f"encoder/stages_{stage}/layers_{block}/{module}", leaf)
+
+    match = re.fullmatch(r"encoder\.layer_norms\.(\d+)\.(weight|bias)", target)
+    if match:
+        index, leaf = match.groups()
+        return _mae_leaf(f"encoder/layer{int(index) + 1}_norm", leaf)
+
+    match = re.fullmatch(r"decoder\.bridge\.(conv|gn)\.(weight|bias)", target)
+    if match:
+        module, leaf = match.groups()
+        return _mae_leaf(f"decoder/bridge/{module}", leaf)
+
+    match = re.fullmatch(
+        r"decoder\.(up43|up32|up21|up10)\.(concat_norm)\.(weight|bias)", target
+    )
+    if match:
+        block, _, leaf = match.groups()
+        return _mae_leaf(f"decoder/{block}/concat_norm_fn", leaf)
+
+    match = re.fullmatch(
+        r"decoder\.(up43|up32|up21|up10)\.(proj|refine)\.(conv|gn)\.(weight|bias)",
+        target,
+    )
+    if match:
+        block, section, module, leaf = match.groups()
+        return _mae_leaf(f"decoder/{block}/{section}/{module}", leaf)
+
+    match = re.fullmatch(r"decoder\.head\.(weight|bias)", target)
+    if match:
+        return _mae_leaf("decoder/head", match.group(1))
+
+    match = re.fullmatch(r"fc\.(weight|bias)", target)
+    if match:
+        return _mae_leaf("fc", match.group(1))
+    return None
+
+
+def map_mae_state(
+    source: Mapping[str, np.ndarray],
+    expected_target: Mapping[str, Tensor],
+) -> dict[str, Tensor]:
+    """Map a flattened Flax MAE tree and reject every incomplete mapping."""
+    mapped: dict[str, Tensor] = {}
+    consumed: set[str] = set()
+    missing_targets: list[str] = []
+    for target_name, target_value in expected_target.items():
+        source_name = _source_for_mae_target(target_name)
+        if source_name is None or source_name not in source:
+            missing_targets.append(target_name)
+            continue
+        converted = convert_leaf(
+            source_name,
+            source[source_name],
+            target_shape=tuple(target_value.shape),
+        )
+        mapped[target_name] = torch.from_numpy(converted).to(dtype=target_value.dtype)
+        consumed.add(source_name)
+    unused_sources = sorted(set(source) - consumed)
+    if unused_sources:
+        raise ConversionError("unmapped source parameters: " + ", ".join(unused_sources))
+    if missing_targets:
+        raise ConversionError("unmapped target parameters: " + ", ".join(sorted(missing_targets)))
+    return mapped
+
+
+def _converted_shape(source_name: str, shape: tuple[int, ...]) -> tuple[int, ...]:
+    if not source_name.endswith("/kernel"):
+        return shape
+    if len(shape) == 2:
+        return (shape[1], shape[0])
+    if len(shape) == 4:
+        return (shape[3], shape[2], shape[0], shape[1])
+    raise ConversionError(f"{source_name}: unsupported kernel rank {len(shape)}")
+
+
+def validate_mae_state_shapes(
+    source_shapes: Mapping[str, tuple[int, ...]],
+    target_shapes: Mapping[str, tuple[int, ...]],
+) -> None:
+    """Validate an entire MAE mapping without allocating parameter storage."""
+    consumed: set[str] = set()
+    missing_targets: list[str] = []
+    shape_errors: list[str] = []
+    for target_name, target_shape in target_shapes.items():
+        source_name = _source_for_mae_target(target_name)
+        if source_name is None or source_name not in source_shapes:
+            missing_targets.append(target_name)
+            continue
+        converted = _converted_shape(source_name, tuple(source_shapes[source_name]))
+        if converted != tuple(target_shape):
+            shape_errors.append(
+                f"{source_name}->{target_name}: {converted} != {tuple(target_shape)}"
+            )
+        consumed.add(source_name)
+    unused_sources = sorted(set(source_shapes) - consumed)
+    if unused_sources:
+        raise ConversionError("unmapped source parameters: " + ", ".join(unused_sources))
+    if missing_targets:
+        raise ConversionError("unmapped target parameters: " + ", ".join(sorted(missing_targets)))
+    if shape_errors:
+        raise ConversionError("shape mismatches: " + "; ".join(shape_errors))

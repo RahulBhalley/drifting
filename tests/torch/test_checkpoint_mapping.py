@@ -6,6 +6,8 @@ from drifting_torch.checkpointing.mapping import (
     ConversionError,
     convert_leaf,
     map_generator_state,
+    map_mae_state,
+    validate_mae_state_shapes,
 )
 
 
@@ -68,3 +70,37 @@ def test_converter_rejects_unmapped_target():
                 "surprise.weight": torch.empty(2, 2),
             },
         )
+
+
+def test_mae_mapping_handles_conv_group_norm_and_dense_layouts():
+    source = {
+        "encoder/conv1/kernel": np.ones((3, 3, 3, 8), dtype=np.float32),
+        "encoder/gn1/scale": np.ones(8, dtype=np.float32),
+        "encoder/gn1/bias": np.zeros(8, dtype=np.float32),
+        "fc/kernel": np.ones((64, 7), dtype=np.float32),
+        "fc/bias": np.zeros(7, dtype=np.float32),
+    }
+    target = {
+        "encoder.conv1.weight": torch.empty(8, 3, 3, 3),
+        "encoder.gn1.weight": torch.empty(8),
+        "encoder.gn1.bias": torch.empty(8),
+        "fc.weight": torch.empty(7, 64),
+        "fc.bias": torch.empty(7),
+    }
+    mapped = map_mae_state(source, target)
+    assert set(mapped) == set(target)
+    assert mapped["encoder.conv1.weight"].shape == (8, 3, 3, 3)
+    assert mapped["fc.weight"].shape == (7, 64)
+
+
+def test_mae_shape_gate_validates_without_allocating_tensors():
+    validate_mae_state_shapes(
+        {
+            "encoder/conv1/kernel": (3, 3, 3, 640),
+            "encoder/gn1/scale": (640,),
+        },
+        {
+            "encoder.conv1.weight": (640, 3, 3, 3),
+            "encoder.gn1.weight": (640,),
+        },
+    )

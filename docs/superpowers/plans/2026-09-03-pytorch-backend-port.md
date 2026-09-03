@@ -434,7 +434,7 @@ git commit -m "feat: convert and validate jax generator checkpoints"
 - Produces: `MAEResNet.get_activations(images, ...) -> dict[str, Tensor]` with values shaped `(B,T,C)`.
 - Extends: `convert_jax_mae(source, destination) -> ConversionReport`.
 
-- [ ] **Step 1: Write MAE shape, loss, and activation-key tests**
+- [x] **Step 1: Write MAE shape, loss, and activation-key tests**
 
 ```python
 def test_mae_activation_contract(tiny_mae):
@@ -443,13 +443,13 @@ def test_mae_activation_contract(tiny_mae):
     assert all(value.ndim == 3 for value in out.values())
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_mae.py tests/parity/test_mae.py`
 
 Expected: MAE module missing.
 
-- [ ] **Step 3: Implement NCHW ResNet encoder and U-Net decoder**
+- [x] **Step 3: Implement NCHW ResNet encoder and U-Net decoder**
 
 ```python
 def patch_input(x: Tensor, patch: int) -> Tensor:
@@ -460,26 +460,26 @@ Match convolution padding/stride/bias, dynamic GroupNorm groups, dropout,
 projection skips, bilinear resize convention, decoder concatenation, logits,
 mask-weighted reconstruction loss, and optional classification loss.
 
-- [ ] **Step 4: Implement complete activation extraction**
+- [x] **Step 4: Implement complete activation extraction**
 
 Preserve all released keys and `(B,T,C)` values for raw, per-block, global
 mean/std, and patch mean/std outputs. Use population standard deviation in FP32
 with the JAX epsilon placement.
 
-- [ ] **Step 5: Extend conversion and compare an official MAE artifact**
+- [x] **Step 5: Extend conversion and compare an official MAE artifact**
 
 Convert `hf://mae_latent_256` first, supply identical images and explicit masks,
 and compare encoder stages, decoder output, logits, losses, and activation
 dictionaries. Then run a shape/mapping conversion gate for the 640-channel
 pixel and latent artifacts.
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_mae.py tests/parity/test_mae.py`
 
 Expected: all MAE outputs and official converted activations satisfy policy.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/drifting_torch/models/mae.py src/drifting_torch/checkpointing tools/convert_checkpoint.py tests/torch/test_mae.py tests/parity/test_mae.py

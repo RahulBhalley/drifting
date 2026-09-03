@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 from safetensors.torch import load_file, save_file
@@ -21,8 +21,9 @@ from drifting_common.artifacts import (
     sha256_file,
 )
 from drifting_torch.models.generator import build_generator
+from drifting_torch.models.mae import MAEResNet
 
-from .mapping import ConversionError, map_generator_state
+from .mapping import ConversionError, map_generator_state, map_mae_state
 
 
 MAPPING_VERSION = 1
@@ -84,6 +85,34 @@ def _file_record(path: Path, *, relative_to: Path) -> ArtifactFile:
 
 def convert_jax_generator(source: str | Path, destination: str | Path) -> ConversionReport:
     """Convert one JAX EMA artifact and publish only after strict reload validation."""
+    return _convert_jax_model(
+        source,
+        destination,
+        kind="generator",
+        builder=build_generator,
+        mapper=map_generator_state,
+    )
+
+
+def convert_jax_mae(source: str | Path, destination: str | Path) -> ConversionReport:
+    """Convert one JAX MAE EMA artifact and validate a strict native reload."""
+    return _convert_jax_model(
+        source,
+        destination,
+        kind="mae",
+        builder=lambda config: MAEResNet(**dict(config)),
+        mapper=map_mae_state,
+    )
+
+
+def _convert_jax_model(
+    source: str | Path,
+    destination: str | Path,
+    *,
+    kind: str,
+    builder: Callable[[dict[str, Any]], Any],
+    mapper: Callable[[dict[str, np.ndarray], dict[str, Any]], dict[str, Any]],
+) -> ConversionReport:
     source_dir = resolve_jax_artifact(source)
     destination = Path(destination).expanduser().resolve()
     if destination.exists():
@@ -94,9 +123,9 @@ def convert_jax_generator(source: str | Path, destination: str | Path) -> Conver
     model_config = dict(metadata.get("model_config") or {})
     if not model_config:
         raise ConversionError("source metadata is missing model_config")
-    model = build_generator(model_config)
+    model = builder(model_config)
     source_state = _flatten_jax_params(source_dir / "ema_params.msgpack")
-    mapped = map_generator_state(source_state, model.state_dict())
+    mapped = mapper(source_state, model.state_dict())
     incompatible = model.load_state_dict(mapped, strict=True)
     if incompatible.missing_keys or incompatible.unexpected_keys:
         raise ConversionError(
@@ -111,7 +140,7 @@ def convert_jax_generator(source: str | Path, destination: str | Path) -> Conver
         weights_path = temporary / "model.safetensors"
         save_file(mapped, weights_path)
         reloaded = load_file(weights_path, device="cpu")
-        verification = build_generator(model_config).load_state_dict(reloaded, strict=True)
+        verification = builder(model_config).load_state_dict(reloaded, strict=True)
         if verification.missing_keys or verification.unexpected_keys:
             raise ConversionError("serialized artifact failed strict reload validation")
 
@@ -135,7 +164,7 @@ def convert_jax_generator(source: str | Path, destination: str | Path) -> Conver
         ema_decay = float(selected_ema) if selected_ema is not None else None
         manifest = ArtifactManifest(
             schema_version=1,
-            kind="generator",
+            kind=kind,
             backend="torch",
             model_config=model_config,
             step=step,
