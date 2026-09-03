@@ -15,13 +15,14 @@ def is_rank_zero() -> bool:
 
 
 class JsonlLogger:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, enabled: bool | None = None):
         self.path = Path(path)
-        if is_rank_zero():
+        self.enabled = is_rank_zero() if enabled is None else bool(enabled)
+        if self.enabled:
             self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def log(self, step: int, metrics: dict[str, Any]) -> None:
-        if not is_rank_zero():
+        if not self.enabled:
             return
         values = {
             name: float(value.detach().cpu()) if isinstance(value, torch.Tensor) else value

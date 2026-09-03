@@ -17,10 +17,9 @@ from drifting_torch.checkpointing import (
     save_training_state,
 )
 from drifting_torch.data import DataBatch, create_dataset_split
+from drifting_torch.distributed import DistributedContext, unwrap_model, wrap_model
 from drifting_torch.logging import JsonlLogger
 from drifting_torch.models.mae import MAEResNet
-from drifting_torch.runtime import resolve_device
-
 from .generator import StepResult
 from .schedules import assign_learning_rate, build_adamw, learning_rate
 from .state import MAETrainState
@@ -67,6 +66,7 @@ def _sample_mask(
     options: MAEStepOptions,
     generator: torch.Generator,
 ) -> Tensor:
+    model = unwrap_model(model)
     batch, _, height, width = images.shape
     height //= model.input_patch_size
     width //= model.input_patch_size
@@ -192,15 +192,22 @@ def _dict(value: Any) -> dict:
     return value.to_dict() if hasattr(value, "to_dict") else dict(value)
 
 
-def train_mae(config, runtime, workdir: str | Path) -> MAETrainingSummary:
+def _artifact_ema(state: MAETrainState) -> dict[str, Tensor]:
+    values = state.ema
+    if values and all(name.startswith("module.") for name in values):
+        return {name.removeprefix("module."): value for name, value in values.items()}
+    return values
+
+
+def _train_mae(config, runtime, workdir: str | Path, context: DistributedContext) -> MAETrainingSummary:
     runtime_values = _dict(runtime or config.runtime or {})
     if runtime_values.get("backend", "torch") != "torch":
         raise ValueError("PyTorch MAE training requires runtime.backend=torch")
-    device = resolve_device(runtime_values.get("device", "auto"))
+    device = context.device
     torch.manual_seed(int(config.train.seed))
     model_config = dict(config.model)
     model_config["num_classes"] = int(config.dataset.num_classes)
-    model = MAEResNet(**model_config).to(device)
+    model = wrap_model(MAEResNet(**model_config), context)
     optimizer_values = _dict(config.optimizer)
     schedule_values = dict(optimizer_values["lr_schedule"])
     optimizer = build_adamw(
@@ -225,12 +232,13 @@ def train_mae(config, runtime, workdir: str | Path) -> MAETrainingSummary:
     resumed_from = 0
     if existing:
         load_training_state(
-            existing[-1], state, sampler=train_pipeline.sampler, config=config
+            existing[-1], state, sampler=train_pipeline.sampler, config=config,
+            context=context,
         )
         resumed_from = state.completed_steps
     elif config.train.get("init_from", ""):
         loaded = load_torch_mae(config.train["init_from"], device=device)
-        state.model.load_state_dict(loaded.model.state_dict(), strict=True)
+        unwrap_model(state.model).load_state_dict(loaded.model.state_dict(), strict=True)
         state.ema = {name: value.detach().clone() for name, value in state.model.state_dict().items()}
 
     forward = dict(config.train.get("forward_dict", {}))
@@ -246,7 +254,7 @@ def train_mae(config, runtime, workdir: str | Path) -> MAETrainingSummary:
     )
     total_steps = int(config.train.total_steps)
     iterator = iter(train_pipeline.loader)
-    logger = JsonlLogger(output / "metrics.jsonl")
+    logger = JsonlLogger(output / "metrics.jsonl", enabled=context.is_main)
     final_metrics: dict[str, float] = {}
     latest = existing[-1] if existing else checkpoint_root / "step-00000000.pt"
     while state.completed_steps < total_steps:
@@ -298,20 +306,31 @@ def train_mae(config, runtime, workdir: str | Path) -> MAETrainingSummary:
         if should_save:
             latest = checkpoint_root / f"step-{state.completed_steps:08d}.pt"
             save_training_state(
-                latest, state, sampler=train_pipeline.sampler, config=config
+                latest, state, sampler=train_pipeline.sampler, config=config,
+                context=context,
             )
     artifact = output / "artifacts" / f"mae-ema-step-{state.completed_steps:08d}"
-    if not artifact.exists():
+    context.barrier()
+    if context.is_main and not artifact.exists():
         save_torch_mae_artifact(
             artifact,
-            state_dict=state.ema,
+            state_dict=_artifact_ema(state),
             model_config=model_config,
             step=state.completed_steps,
             ema_decay=state.ema_decay,
         )
+    context.barrier()
     return MAETrainingSummary(
         state.completed_steps, resumed_from, latest, artifact, final_metrics
     )
+
+
+def train_mae(config, runtime, workdir: str | Path) -> MAETrainingSummary:
+    context = DistributedContext.initialize(runtime or config.runtime or {})
+    try:
+        return _train_mae(config, runtime, workdir, context)
+    finally:
+        context.close()
 
 
 __all__ = [

@@ -10,6 +10,7 @@ from torch import Tensor, nn
 from drifting_torch.data.datasets import DataBatch
 from drifting_torch.loss import drift_loss
 from drifting_torch.memory_bank import ClassMemoryBank
+from drifting_torch.distributed.strategies import unwrap_model
 
 from .schedules import assign_learning_rate, learning_rate
 from .state import GeneratorTrainState
@@ -90,6 +91,7 @@ def generator_train_step(
     state.model.train()
     feature_extractor.eval()
     device = next(state.model.parameters()).device
+    generator_model = unwrap_model(state.model)
     labels = batch.labels.to(device=device, dtype=torch.long)
     batch_size = labels.shape[0]
     positive_bank, negative_bank = banks
@@ -112,16 +114,16 @@ def generator_train_step(
     if noise is None:
         noise = torch.randn(
             generated_count,
-            state.model.in_channels,
-            state.model.input_size,
-            state.model.input_size,
+            generator_model.in_channels,
+            generator_model.input_size,
+            generator_model.input_size,
             generator=state.generator,
         )
     noise_labels = options.noise_labels
     if noise_labels is None:
         noise_labels = torch.randint(
-            max(1, state.model.noise_classes),
-            (generated_count, max(1, state.model.noise_coords)),
+            max(1, generator_model.noise_classes),
+            (generated_count, max(1, generator_model.noise_coords)),
             generator=state.generator,
         )
     generated = state.model(

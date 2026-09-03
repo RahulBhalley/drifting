@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import copy
+import os
 from pathlib import Path
 import time
 from typing import Any
 
+import numpy as np
 import torch
 
 from drifting_torch.checkpointing import (
@@ -17,12 +20,12 @@ from drifting_torch.checkpointing import (
     save_training_state,
 )
 from drifting_torch.data import create_dataset_split
+from drifting_torch.distributed import DistributedContext, unwrap_model, wrap_model
+from drifting_torch.evaluation import ReleasedInception, compute_statistics, evaluate_generator
 from drifting_torch.logging import JsonlLogger
 from drifting_torch.memory_bank import ClassMemoryBank
 from drifting_torch.models import ConvNeXtV2FeatureExtractor, FrozenFeatureExtractor
 from drifting_torch.models.generator import build_generator
-from drifting_torch.runtime import resolve_device
-
 from .generator import GeneratorStepOptions, generator_train_step
 from .schedules import build_adamw
 from .state import GeneratorTrainState
@@ -65,15 +68,121 @@ def _build_features(config, pipeline, device: torch.device) -> FrozenFeatureExtr
     ).to(device)
 
 
-def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
+def _artifact_ema(state: GeneratorTrainState) -> dict[str, torch.Tensor]:
+    values = state.ema
+    if values and all(name.startswith("module.") for name in values):
+        return {name.removeprefix("module."): value for name, value in values.items()}
+    return values
+
+
+def should_evaluate(step: int, total_steps: int, every: int, enabled: bool) -> bool:
+    return bool(enabled) and (step == 1 or step == total_steps or step % every == 0)
+
+
+def _required_path(kwargs: dict[str, Any], key: str, environment: str) -> Path:
+    value = kwargs.get(key) or os.environ.get(environment)
+    if not value:
+        raise ValueError(
+            f"generator evaluation requires dataset.kwargs.{key} or {environment}"
+        )
+    path = Path(value).expanduser().resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"generator evaluation file does not exist: {path}")
+    return path
+
+
+def _reference_statistics(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    with np.load(path) as values:
+        if "ref_mu" in values:
+            return values["ref_mu"], values["ref_sigma"]
+        return values["mu"], values["sigma"]
+
+
+def _repeat_loader(loader):
+    while True:
+        yielded = False
+        for batch in loader:
+            yielded = True
+            yield batch
+        if not yielded:
+            raise ValueError("evaluation loader produced no batches")
+
+
+def _evaluate_state(
+    config,
+    state: GeneratorTrainState,
+    eval_pipeline,
+    device: torch.device,
+    *,
+    num_samples: int,
+    cfg_scale: float,
+):
+    dataset_kwargs = dict(config.dataset.get("kwargs", {}))
+    weights = _required_path(dataset_kwargs, "inception_weights", "DRIFTING_INCEPTION_WEIGHTS")
+    fid_stats = _required_path(dataset_kwargs, "fid_stats_path", "DRIFTING_FID_STATS")
+    reference_mu, reference_sigma = _reference_statistics(fid_stats)
+    eval_options = dict(config.train.get("eval_forward_dict", {}))
+    compute_pr = bool(eval_options.get("eval_prc_recall", False))
+    reference_features = None
+    if compute_pr:
+        pr_path = _required_path(dataset_kwargs, "pr_reference_path", "DRIFTING_PR_REFERENCE")
+        with np.load(pr_path) as values:
+            if "features" not in values:
+                raise ValueError("PyTorch PR reference NPZ must contain a 'features' array")
+            reference_features = values["features"]
+
+    evaluation_model = copy.deepcopy(unwrap_model(state.model)).to(device)
+    evaluation_model.load_state_dict(_artifact_ema(state), strict=True)
+    evaluation_model.eval()
+    inception = ReleasedInception.from_pickle(weights).to(device)
+    generator = torch.Generator(device="cpu").manual_seed(int(config.train.seed))
+    base_model = unwrap_model(evaluation_model)
+
+    def generate_batch(raw, _batch_index):
+        labels = torch.as_tensor(raw[1], device=device, dtype=torch.long)
+        noise = torch.randn(
+            len(labels), base_model.in_channels, base_model.input_size, base_model.input_size,
+            generator=generator,
+        )
+        noise_labels = torch.randint(
+            max(1, base_model.noise_classes),
+            (len(labels), max(1, base_model.noise_coords)),
+            generator=generator,
+        )
+        with torch.inference_mode():
+            generated = evaluation_model(
+                labels,
+                cfg_scale=cfg_scale,
+                noise=noise.to(device),
+                noise_labels=noise_labels.to(device),
+            ).samples
+            return eval_pipeline.postprocess(generated)
+
+    eval_pipeline.sampler.epoch = 0
+    eval_pipeline.sampler.cursor = 0
+    return evaluate_generator(
+        _repeat_loader(eval_pipeline.loader),
+        generate_batch,
+        inception,
+        reference_mu=reference_mu,
+        reference_sigma=reference_sigma,
+        num_samples=num_samples,
+        reference_features=reference_features,
+        compute_is=bool(eval_options.get("eval_isc", True)),
+        compute_pr=compute_pr,
+        splits=int(eval_options.get("splits", 10)),
+    )
+
+
+def _train_generator(config, runtime, workdir: str | Path, context: DistributedContext) -> TrainingSummary:
     runtime_values = _dict(runtime or config.runtime or {})
     if runtime_values.get("backend", "torch") != "torch":
         raise ValueError("PyTorch training requires runtime.backend=torch")
-    device = resolve_device(runtime_values.get("device", "auto"))
+    device = context.device
     torch.manual_seed(int(config.train.seed))
     model_config = dict(config.model)
     model_config["num_classes"] = int(config.dataset.num_classes)
-    model = build_generator(model_config).to(device)
+    model = wrap_model(build_generator(model_config), context)
     optimizer_values = _dict(config.optimizer)
     schedule_values = dict(optimizer_values["lr_schedule"])
     optimizer = build_adamw(
@@ -90,6 +199,9 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
         seed=int(config.train.seed),
     )
     pipeline = create_dataset_split(config, runtime, "train")
+    eval_pipeline = None
+    if bool(config.train.get("enable_eval", True)):
+        eval_pipeline = create_dataset_split(config, runtime, "val")
     feature_extractor = _build_features(config, pipeline, device)
     positive_bank = ClassMemoryBank(
         num_classes=int(config.dataset.num_classes),
@@ -109,12 +221,13 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
     resumed_from = 0
     if existing:
         load_training_state(
-            existing[-1], state, sampler=pipeline.sampler, banks=banks, config=config
+            existing[-1], state, sampler=pipeline.sampler, banks=banks, config=config,
+            context=context,
         )
         resumed_from = state.completed_steps
     elif config.train.get("init_from", ""):
         loaded = load_torch_generator(config.train["init_from"], device=device)
-        state.model.load_state_dict(loaded.model.state_dict(), strict=True)
+        unwrap_model(state.model).load_state_dict(loaded.model.state_dict(), strict=True)
         state.ema = {
             name: value.detach().clone()
             for name, value in state.model.state_dict().items()
@@ -140,7 +253,7 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
     train_batch_size = int(config.train.get("train_batch_size", 0))
     save_every = int(config.train.save_per_step)
     iterator = iter(pipeline.loader)
-    logger = JsonlLogger(output / "metrics.jsonl")
+    logger = JsonlLogger(output / "metrics.jsonl", enabled=context.is_main)
     final_metrics: dict[str, float] = {}
     latest_checkpoint = existing[-1] if existing else checkpoints / "step-00000000.pt"
     while state.completed_steps < total_steps:
@@ -191,6 +304,40 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
         final_metrics = {
             name: float(value.detach().cpu()) for name, value in metrics.items()
         }
+        if should_evaluate(
+            state.completed_steps,
+            total_steps,
+            int(config.train.eval_per_step),
+            bool(config.train.get("enable_eval", True)),
+        ):
+            is_sanity = state.completed_steps == 1
+            sample_count = 500 if is_sanity else int(config.train.get("eval_samples", 50_000))
+            cfg_values = [float(value) for value in config.train.get("cfg_list", [1.0])]
+            if is_sanity:
+                cfg_values = cfg_values[:1]
+            best_fid, best_cfg = float("inf"), cfg_values[0]
+            for cfg_scale in cfg_values:
+                result = _evaluate_state(
+                    config,
+                    state,
+                    eval_pipeline,
+                    device,
+                    num_samples=sample_count,
+                    cfg_scale=cfg_scale,
+                )
+                prefix = f"{'sanity' if is_sanity else 'CFG'}/{cfg_scale:g}/"
+                logger.log(
+                    state.completed_steps,
+                    {prefix + name: value for name, value in result.metrics.items()},
+                )
+                if result.metrics.get("fid", float("inf")) < best_fid:
+                    best_fid = result.metrics["fid"]
+                    best_cfg = cfg_scale
+            if not is_sanity:
+                logger.log(
+                    state.completed_steps,
+                    {"best_fid": best_fid, "best_cfg": best_cfg},
+                )
         if state.completed_steps % save_every == 0 or state.completed_steps == total_steps:
             latest_checkpoint = checkpoints / f"step-{state.completed_steps:08d}.pt"
             save_training_state(
@@ -199,17 +346,20 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
                 sampler=pipeline.sampler,
                 banks=banks,
                 config=config,
+                context=context,
             )
 
     artifact = output / "artifacts" / f"generator-ema-step-{state.completed_steps:08d}"
-    if not artifact.exists():
+    context.barrier()
+    if context.is_main and not artifact.exists():
         save_torch_generator_artifact(
             artifact,
-            state_dict=state.ema,
+            state_dict=_artifact_ema(state),
             model_config=model_config,
             step=state.completed_steps,
             ema_decay=state.ema_decay,
         )
+    context.barrier()
     return TrainingSummary(
         completed_steps=state.completed_steps,
         resumed_from=resumed_from,
@@ -217,6 +367,14 @@ def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
         ema_artifact=artifact,
         metrics=final_metrics,
     )
+
+
+def train_generator(config, runtime, workdir: str | Path) -> TrainingSummary:
+    context = DistributedContext.initialize(runtime or config.runtime or {})
+    try:
+        return _train_generator(config, runtime, workdir, context)
+    finally:
+        context.close()
 
 
 __all__ = ["TrainingSummary", "train_generator"]

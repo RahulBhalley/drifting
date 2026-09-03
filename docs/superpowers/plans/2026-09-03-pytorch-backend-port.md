@@ -739,7 +739,7 @@ def learning_rate(step, *, base_lr, warmup_steps, total_steps, schedule):
 
 Configure AdamW beta, epsilon, weight decay, and LR assignment to match Optax.
 
-- [ ] **Step 4: Implement generator step and loop**
+- [x] **Step 4: Implement generator step and loop**
 
 Preserve CFG power-law sampling, no-CFG fraction, class repetition, stopped
 reference features, differentiable generated features, per-feature drifting
@@ -979,7 +979,7 @@ git commit -m "feat: port release evaluation metrics to pytorch"
 - Produces: `wrap_model(model, context) -> nn.Module`.
 - Produces: `gather_valid(tensor, valid_mask, context) -> tuple[Tensor, Tensor]`.
 
-- [ ] **Step 1: Write topology and two-process tests**
+- [x] **Step 1: Write topology and two-process tests**
 
 ```python
 def worker(rank, world_size, rendezvous, result_dir):
@@ -990,40 +990,40 @@ def worker(rank, world_size, rendezvous, result_dir):
         assert summary.completed_step == 1
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/distributed/test_runtime.py tests/distributed/test_topology_validation.py`
 
 Expected: distributed package missing.
 
-- [ ] **Step 3: Implement explicit runtime lifecycle**
+- [x] **Step 3: Implement explicit runtime lifecycle**
 
 Resolve rank/local-rank/world-size from validated config/environment, initialize
 only for distributed strategies, choose Gloo for CPU and NCCL for CUDA, set the
 CUDA device before collectives, provide barriers/reductions, and always destroy
 owned process groups.
 
-- [ ] **Step 4: Implement DDP, FSDP, and HSDP wrappers**
+- [x] **Step 4: Implement DDP, FSDP, and HSDP wrappers**
 
 DDP replicates the model and preserves process-local banks. FSDP shards along a
 one-dimensional mesh. HSDP validates `replicate_size * shard_size == world_size`
 and creates a two-dimensional device mesh. Activation checkpointing composes
 before distributed wrapping.
 
-- [ ] **Step 5: Make checkpoint operations collective**
+- [x] **Step 5: Make checkpoint operations collective**
 
 Every rank enters distributed save/load. Publish only after all shards and the
 manifest validate. Bind resumable state to strategy, world size, precision,
 optimizer, and trajectory hash; fail with a compatibility report otherwise.
 
-- [ ] **Step 6: Run multiprocess CPU verification**
+- [x] **Step 6: Run multiprocess CPU verification**
 
 Run: `.venv-training/bin/python -m pytest -q tests/distributed/test_ddp_training.py tests/distributed/test_collective_checkpoint.py`
 
 Expected: two Gloo processes train, checkpoint, restore, and finish without
 duplicate logs or partial checkpoint publication.
 
-- [ ] **Step 7: Run topology tests and commit**
+- [x] **Step 7: Run topology tests and commit**
 
 Run: `.venv-training/bin/python -m pytest -q tests/distributed/test_runtime.py tests/distributed/test_topology_validation.py`
 

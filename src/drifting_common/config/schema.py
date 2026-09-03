@@ -214,6 +214,10 @@ class RuntimeConfig(ConfigSection):
             "distributed_backend",
             "num_workers",
             "pin_memory",
+            "rank",
+            "local_rank",
+            "world_size",
+            "init_method",
         }
     )
     required_keys = frozenset({"backend", "device", "strategy", "precision"})
@@ -232,6 +236,13 @@ class RuntimeConfig(ConfigSection):
         for key in ("replicate_size", "shard_size"):
             if key in self._values:
                 _positive_int(self._values[key], f"runtime.{key}")
+        for key in ("rank", "local_rank"):
+            if key in self._values:
+                value = self._values[key]
+                if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                    raise ConfigError(f"runtime.{key} must be a non-negative integer")
+        if "world_size" in self._values:
+            _positive_int(self._values["world_size"], "runtime.world_size")
         if self._values["strategy"] == "hsdp":
             for key in ("replicate_size", "shard_size"):
                 if key not in self._values:

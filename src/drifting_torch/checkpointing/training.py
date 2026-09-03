@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from drifting_torch.distributed.runtime import DistributedContext
 from drifting_torch.memory_bank import ClassMemoryBank
 from drifting_torch.training.state import GeneratorTrainState
 
@@ -74,9 +75,11 @@ def save_training_state(
     sampler,
     banks: tuple[ClassMemoryBank, ClassMemoryBank] | None = None,
     config: Any,
+    context: DistributedContext | None = None,
 ) -> Path:
     path = Path(destination)
     path.parent.mkdir(parents=True, exist_ok=True)
+    context = context or DistributedContext.single()
     payload = {
         "schema_version": 1,
         "completed_steps": state.completed_steps,
@@ -90,7 +93,45 @@ def save_training_state(
         "sampler": sampler.state_dict(),
         "positive_bank": None if banks is None else banks[0].state_dict(),
         "negative_bank": None if banks is None else banks[1].state_dict(),
+        "distributed": {
+            "strategy": context.strategy,
+            "world_size": context.world_size,
+            "precision": context.precision,
+            "rank": context.rank,
+        },
     }
+    if context.distributed:
+        staging = path.with_name(f".{path.name}.staging")
+        published = path.with_name(f"{path.name}.shards")
+        if context.is_main:
+            staging.mkdir(parents=False, exist_ok=False)
+        context.barrier()
+        shard = staging / f"rank-{context.rank:05d}.pt"
+        temporary_shard = staging / f".rank-{context.rank:05d}.tmp-{os.getpid()}"
+        torch.save(payload, temporary_shard)
+        os.replace(temporary_shard, shard)
+        context.barrier()
+        if context.is_main:
+            expected = [staging / f"rank-{rank:05d}.pt" for rank in range(context.world_size)]
+            if not all(item.is_file() and item.stat().st_size > 0 for item in expected):
+                raise RuntimeError("not all distributed checkpoint shards were written")
+            os.replace(staging, published)
+            manifest = {
+                "schema_version": 2,
+                "kind": "distributed_training_state",
+                "strategy": context.strategy,
+                "world_size": context.world_size,
+                "precision": context.precision,
+                "trajectory_hash": trajectory_hash(config),
+                "shards": published.name,
+            }
+            temporary_manifest = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+            temporary_manifest.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            os.replace(temporary_manifest, path)
+        context.barrier()
+        return path
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
     torch.save(payload, temporary)
     os.replace(temporary, path)
@@ -104,8 +145,38 @@ def load_training_state(
     sampler,
     banks: tuple[ClassMemoryBank, ClassMemoryBank] | None = None,
     config: Any,
+    context: DistributedContext | None = None,
 ) -> GeneratorTrainState:
-    payload = torch.load(Path(source), map_location="cpu", weights_only=False)
+    path = Path(source)
+    context = context or DistributedContext.single()
+    with path.open("rb") as handle:
+        prefix = handle.read(1)
+    if prefix == b"{":
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if manifest.get("schema_version") != 2:
+            raise ValueError("unsupported distributed training-state schema version")
+        if not context.distributed:
+            raise ValueError("distributed checkpoint requires a distributed runtime context")
+        expected = (context.strategy, context.world_size, context.precision)
+        actual = (
+            manifest.get("strategy"),
+            int(manifest.get("world_size", 0)),
+            manifest.get("precision"),
+        )
+        if actual != expected:
+            raise ValueError(
+                "distributed checkpoint is incompatible: expected "
+                f"strategy/world_size/precision={expected}, found {actual}"
+            )
+        if manifest["trajectory_hash"] != trajectory_hash(config):
+            raise ValueError("training trajectory configuration hash does not match")
+        context.barrier()
+        shard_path = path.with_name(manifest["shards"]) / f"rank-{context.rank:05d}.pt"
+        payload = torch.load(shard_path, map_location="cpu", weights_only=False)
+    else:
+        if context.distributed:
+            raise ValueError("single-process checkpoint cannot resume a distributed run")
+        payload = torch.load(path, map_location="cpu", weights_only=False)
     if payload.get("schema_version") != 1:
         raise ValueError("unsupported training-state schema version")
     if payload["trajectory_hash"] != trajectory_hash(config):
@@ -127,6 +198,7 @@ def load_training_state(
         banks[0].load_state_dict(payload["positive_bank"])
         banks[1].load_state_dict(payload["negative_bank"])
     _restore_rng(payload["rng"])
+    context.barrier()
     return state
 
 

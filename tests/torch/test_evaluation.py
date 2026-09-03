@@ -8,6 +8,7 @@ from drifting_torch.evaluation.statistics import (
     compute_inception_score,
     compute_statistics,
 )
+from drifting_torch.training.engine import should_evaluate
 
 
 class DummyInception(torch.nn.Module):
@@ -59,3 +60,11 @@ def test_frechet_singular_covariance_and_inception_score_are_finite():
 def test_release_average_pool_excludes_padding():
     image = torch.ones(1, 1, 2, 2)
     torch.testing.assert_close(ReleasedInception._average_pool(image), image)
+
+
+def test_generator_evaluation_schedule_matches_jax_release():
+    assert should_evaluate(1, 100, 10, True)
+    assert should_evaluate(10, 100, 10, True)
+    assert should_evaluate(100, 100, 10, True)
+    assert not should_evaluate(11, 100, 10, True)
+    assert not should_evaluate(10, 100, 10, False)

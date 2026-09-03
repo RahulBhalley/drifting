@@ -1,0 +1,8 @@
+backend: torch
+device: cuda
+strategy: hsdp
+precision: bf16
+compile: false
+distributed_backend: nccl
+replicate_size: 2
+shard_size: 4
