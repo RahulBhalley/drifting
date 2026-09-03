@@ -198,6 +198,21 @@ def generate_step(batch, params, rng, apply_fn, postprocess_fn, cfg_scale=1.0):
         latent_samples
     )
     return postprocess_fn(latent_samples)
+
+
+def _create_memory_banks(*, num_classes, positive_bank_size, negative_bank_size):
+    return (
+        ArrayMemoryBank(num_classes=num_classes, max_size=positive_bank_size),
+        ArrayMemoryBank(num_classes=1, max_size=negative_bank_size),
+    )
+
+
+def _should_evaluate(*, step, total_steps, eval_per_step, enable_eval):
+    return bool(enable_eval) and (
+        step % eval_per_step == 0 or step == 1 or step == total_steps
+    )
+
+
 def train_gen(
     model,  # DitGen model instance
     optimizer,  # Optax optimizer transform
@@ -208,11 +223,13 @@ def train_gen(
     preprocess_fn,  # preprocessing function for dataloader batches
     postprocess_fn,  # generated sample postprocess function
     dataset_name="imagenet256",  # dataset name for eval logging
+    num_classes=1000,  # number of dataset classes represented by the positive bank
     train_batch_size=0,  # override per-host train batch if > 0
     total_steps=100000,  # max optimization steps
     save_per_step=10000,  # checkpoint save interval
     eval_per_step=5000,  # evaluation interval
     eval_samples=50000,  # number of generated samples for FID evaluation
+    enable_eval=True,  # whether to run ImageNet FID evaluation
     activation_fn=None,  # feature function used by drift loss
     feature_params=None,  # params bundle consumed by activation_fn
     ema_decay=0.999,  # single EMA decay
@@ -286,8 +303,11 @@ def train_gen(
     step = int(state.step)
     initial_step = step
     pbar = tqdm(range(step, total_steps), initial=step, total=total_steps) if is_rank_zero() else range(step, total_steps)
-    memory_bank_positive = ArrayMemoryBank(num_classes=1000, max_size=positive_bank_size)
-    memory_bank_negative = ArrayMemoryBank(num_classes=1, max_size=negative_bank_size)
+    memory_bank_positive, memory_bank_negative = _create_memory_banks(
+        num_classes=num_classes,
+        positive_bank_size=positive_bank_size,
+        negative_bank_size=negative_bank_size,
+    )
     mu.sync_global_devices("train loop started")
     train_iter = infinite_sampler(train_loader, step)
 
@@ -358,7 +378,12 @@ def train_gen(
             )
             mu.sync_global_devices("save checkpoint finished")
 
-        if (step % eval_per_step == 0) or (step == 1) or (step == total_steps):
+        if _should_evaluate(
+            step=step,
+            total_steps=total_steps,
+            eval_per_step=eval_per_step,
+            enable_eval=enable_eval,
+        ):
             is_sanity = (step == 1)  # do a sanity check, to make sure FID env is working
 
             n_samples = 500 if is_sanity else eval_samples
@@ -450,6 +475,7 @@ def main_gen(config, output_dir="runs"):
         preprocess_fn=model_dict.preprocess_fn,
         postprocess_fn=model_dict.postprocess_fn,
         dataset_name=model_dict.dataset_name,
+        num_classes=model_dict.num_classes,
         activation_fn=activation_fn,
         feature_params=variables,
         workdir=output_dir,

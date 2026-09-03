@@ -3,7 +3,7 @@ from pathlib import Path
 import jax
 import optax
 
-from dataset.dataset import create_imagenet_split
+from dataset.dataset import create_dataset_split
 from utils.logging import WandbLogger
 from utils.misc import EasyDict
 
@@ -52,25 +52,32 @@ def build_model_dict(config, model_class, *, workdir: str = "runs"):
     use_aug = bool(config.dataset.get("use_aug", False))
     use_latent = bool(config.dataset.get("use_latent", False))
     use_cache = bool(config.dataset.get("use_cache", False))
+    source = str(config.dataset.get("source", "imagenet")).strip().lower()
+    num_classes = int(config.dataset.num_classes)
+    dataset_options = dict(config.dataset.get("kwargs", {}))
 
-    train_loader, preprocess_fn, postprocess_fn = create_imagenet_split(
+    train_loader, preprocess_fn, postprocess_fn = create_dataset_split(
+        source=source,
+        num_classes=num_classes,
         resolution=resolution,
         use_aug=use_aug,
         use_latent=use_latent,
         use_cache=use_cache,
         batch_size=batch_size_per_node,
         split="train",
-        **config.dataset.kwargs,
+        **dataset_options,
     )
 
-    eval_loader, _, _ = create_imagenet_split(
+    eval_loader, _, _ = create_dataset_split(
+        source=source,
+        num_classes=num_classes,
         resolution=resolution,
         use_aug=use_aug,
         use_latent=use_latent,
         use_cache=use_cache,
         batch_size=config.dataset.eval_batch_size // jax.process_count(),
         split="val",
-        **config.dataset.kwargs,
+        **dataset_options,
     )
 
     learning_rate_fn = create_learning_rate_fn(**config.optimizer.lr_schedule)
@@ -101,7 +108,8 @@ def build_model_dict(config, model_class, *, workdir: str = "runs"):
         logger=logger,
         eval_loader=eval_loader,
         train_loader=train_loader,
-        dataset_name=f"imagenet{resolution}",
+        dataset_name=f"{source}{resolution}",
+        num_classes=num_classes,
         preprocess_fn=preprocess_fn,
         postprocess_fn=postprocess_fn,
         train=config.train,

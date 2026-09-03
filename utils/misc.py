@@ -54,6 +54,10 @@ def run_init():
     global _did_run_init
     if _did_run_init:
         return
+    platforms = [item.strip().lower() for item in os.environ.get("JAX_PLATFORMS", "").split(",") if item.strip()]
+    if platforms == ["cpu"]:
+        _did_run_init = True
+        return
     jax.distributed.initialize()
     _did_run_init = True
 
