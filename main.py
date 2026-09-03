@@ -1,6 +1,6 @@
 import argparse
 
-from utils.misc import add_dataset_override_args
+from drifting_jax.runtime import add_dataset_override_args
 
 def main():
     parser = argparse.ArgumentParser()

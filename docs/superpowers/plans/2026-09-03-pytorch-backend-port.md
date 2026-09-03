@@ -165,7 +165,7 @@ git commit -m "feat: add backend-neutral package contracts"
 - Produces: `drifting_jax.inference.generate(...)`
 - Produces explicit console commands `drifting-jax-train`, `drifting-jax-infer`, and `drifting-jax-cache`.
 
-- [ ] **Step 1: Write package and CLI regression tests**
+- [x] **Step 1: Write package and CLI regression tests**
 
 ```python
 def test_jax_entrypoints_are_explicit():
@@ -185,13 +185,13 @@ def test_legacy_generator_is_packaged_generator():
     assert legacy is DitGen
 ```
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/jax/test_packaged_imports.py tests/jax/test_cli.py`
 
 Expected: fails because `drifting_jax` is absent.
 
-- [ ] **Step 3: Move implementation into focused package modules**
+- [x] **Step 3: Move implementation into focused package modules**
 
 Use `git mv` for the authoritative implementations, rewrite internal imports to
 absolute `drifting_jax.*` or `drifting_common.*` imports, and leave thin root
@@ -203,7 +203,7 @@ from drifting_jax.models.generator import *  # noqa: F403
 
 Root compatibility modules are not registered as generic console commands.
 
-- [ ] **Step 4: Add external-noise and external-mask oracle hooks**
+- [x] **Step 4: Add external-noise and external-mask oracle hooks**
 
 ```python
 def __call__(self, c, cfg_scale=1.0, temp=1.0, deterministic=True,
@@ -217,21 +217,25 @@ Add an optional explicit MAE mask without changing behavior when omitted. Test
 that native RNG and explicit-input paths return identical values when fed the
 captured native samples.
 
-- [ ] **Step 5: Run the complete split-environment JAX baseline**
+- [x] **Step 5: Run the complete split-environment JAX baseline**
 
-Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/common tests/jax -k 'not toy_notebook'`
+Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/common tests/jax --ignore=tests/jax/test_run_toy_notebook.py --ignore=tests/jax/test_packaged_imports.py`
+
+Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/jax/test_packaged_imports.py`
 
 Run: `.venv-toy/bin/python -m pytest -q tests/jax/test_run_toy_notebook.py`
 
 Expected: 27 existing assertions plus new package/CLI/oracle-hook assertions pass.
 
-- [ ] **Step 6: Run the existing local JAX inference smoke**
+- [x] **Step 6: Run the existing local JAX inference smoke**
 
-Run: `JAX_PLATFORMS=cpu HF_ROOT="$PWD/work/hf-cache" .venv/bin/python local_inference_smoke.py --output-dir "$PWD/work/jax-regression"`
+Run: `JAX_PLATFORMS=cpu PYTHONPATH=src .venv-training/bin/python local_inference_smoke.py`
 
-Expected: finite `(1, 256, 256, 3)` pixel output and JSON report.
+Expected: finite `(1, 256, 256, 3)` pixel output and JSON report. The script
+reuses the repository-local artifact cache when present and writes its report
+under the ignored `outputs/inference-smoke/` directory.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/drifting_jax main.py train.py train_mae.py inference.py models dataset utils tests/jax pyproject.toml
@@ -1080,7 +1084,9 @@ Run:
 ```bash
 JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q \
   tests/common tests/jax tests/torch tests/parity tests/distributed \
-  -k 'not toy_notebook'
+  --ignore=tests/jax/test_run_toy_notebook.py \
+  --ignore=tests/jax/test_packaged_imports.py
+.venv-training/bin/python -m pytest -q tests/jax/test_packaged_imports.py
 .venv-toy/bin/python -m pytest -q tests/jax/test_run_toy_notebook.py
 .venv-training/bin/python -m build
 .venv-training/bin/python -m pip check

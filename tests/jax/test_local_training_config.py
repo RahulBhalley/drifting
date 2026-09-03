@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from train import _create_memory_banks, _should_evaluate
-from utils.misc import load_config
+from drifting_jax.training.generator import _create_memory_banks, _should_evaluate
+from drifting_jax.runtime import load_config
 
 
 LOCAL_CONFIGS = (

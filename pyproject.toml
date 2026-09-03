@@ -14,6 +14,11 @@ dependencies = [
   "PyYAML>=6.0,<7",
 ]
 
+[project.scripts]
+drifting-jax-train = "drifting_jax.cli:train_main"
+drifting-jax-infer = "drifting_jax.cli:infer_main"
+drifting-jax-cache = "drifting_jax.cli:cache_main"
+
 [project.optional-dependencies]
 jax = [
   "jax==0.4.37",
@@ -70,4 +75,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-

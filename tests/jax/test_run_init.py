@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import utils.misc as misc
+import drifting_jax.runtime as misc
 
 
 def test_run_init_skips_distributed_initialization_for_explicit_cpu(monkeypatch) -> None:

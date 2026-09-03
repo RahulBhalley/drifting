@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from utils.misc import EasyDict, add_dataset_override_args, apply_dataset_overrides
+from drifting_jax.runtime import EasyDict, add_dataset_override_args, apply_dataset_overrides
 
 
 def _config() -> EasyDict:

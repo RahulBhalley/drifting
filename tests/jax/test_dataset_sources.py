@@ -3,8 +3,8 @@ from __future__ import annotations
 import jax.numpy as jnp
 import pytest
 
-import dataset.dataset as dataset_module
-from dataset.dataset import create_dataset_split
+import drifting_jax.data.datasets as dataset_module
+from drifting_jax.data.datasets import create_dataset_split
 
 
 def test_fake_split_emits_requested_bhwc_images() -> None:
