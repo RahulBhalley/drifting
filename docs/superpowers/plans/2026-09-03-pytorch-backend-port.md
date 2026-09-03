@@ -262,7 +262,7 @@ git commit -m "refactor: package jax reference backend"
 - Produces: `build_generator(model_config: Mapping[str, Any]) -> DitGen`.
 - `GenerationOutput.samples` is NCHW and `GenerationOutput.noise` records NCHW Gaussian noise plus discrete labels.
 
-- [ ] **Step 1: Write primitive and shape tests**
+- [x] **Step 1: Write primitive and shape tests**
 
 ```python
 def test_modulate_broadcasts_over_tokens():
@@ -277,13 +277,13 @@ def test_generator_explicit_noise_is_repeatable(tiny_generator):
     torch.testing.assert_close(out1.samples, out2.samples, rtol=0, atol=0)
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_generator_primitives.py tests/torch/test_generator.py`
 
 Expected: import failure for `drifting_torch.models`.
 
-- [ ] **Step 3: Implement transparent PyTorch primitives and DiT blocks**
+- [x] **Step 3: Implement transparent PyTorch primitives and DiT blocks**
 
 ```python
 def apply_rope(q: Tensor, k: Tensor) -> tuple[Tensor, Tensor]:
@@ -300,19 +300,19 @@ softmax, value aggregation, AdaLN gates,
 SwiGLU sizing, class tokens, patch transforms, zero initialization, CFG
 embedding, noise embeddings, activation checkpointing, and FP32 attention.
 
-- [ ] **Step 4: Add deterministic tiny-model JAX/PyTorch primitive parity**
+- [x] **Step 4: Add deterministic tiny-model JAX/PyTorch primitive parity**
 
 Use fixed NumPy arrays converted into each backend. Compare sinusoidal
 embeddings, RMSNorm, RoPE, modulation, patchify, and unpatchify after explicit
 NHWC/NCHW conversion. Start at `rtol=1e-5, atol=1e-6`; record actual maxima.
 
-- [ ] **Step 5: Run targeted tests**
+- [x] **Step 5: Run targeted tests**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_generator_primitives.py tests/torch/test_generator.py tests/parity/test_generator_primitives.py`
 
 Expected: pass with finite gradients and recorded FP32 errors below thresholds.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/drifting_torch/models src/drifting_torch/runtime.py tests/torch tests/parity/test_generator_primitives.py pyproject.toml
