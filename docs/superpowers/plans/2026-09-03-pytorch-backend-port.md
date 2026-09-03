@@ -563,7 +563,7 @@ git commit -m "feat: port drifting feature extraction"
 - Produces: `drift_loss(gen, fixed_pos, fixed_neg, weight_gen, weight_pos, weight_neg, R_list) -> tuple[Tensor, dict[str, Tensor]]`.
 - Produces: `ClassMemoryBank.add`, `.sample`, `.state_dict`, and `.load_state_dict`.
 
-- [ ] **Step 1: Write forward, gradient, and ring-buffer tests**
+- [x] **Step 1: Write forward, gradient, and ring-buffer tests**
 
 ```python
 def test_drift_loss_target_is_stopped():
@@ -577,13 +577,13 @@ def test_memory_bank_round_trip(bank):
     assert restored.state_dict_equal(bank)
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_loss.py tests/torch/test_memory_bank.py tests/parity/test_loss.py`
 
 Expected: loss and memory-bank modules missing.
 
-- [ ] **Step 3: Port the loss in the same operation order**
+- [x] **Step 3: Port the loss in the same operation order**
 
 ```python
 dist = (gen[:, :, None] - targets[:, None]).square().sum(dim=-1).clamp_min(eps).sqrt()
@@ -595,18 +595,18 @@ Construct the target inside `torch.no_grad()`, then compute MSE from the live
 generated features to the stopped target. Preserve every reduction axis and
 `loss_<radius>` metric.
 
-- [ ] **Step 4: Implement deterministic memory banks**
+- [x] **Step 4: Implement deterministic memory banks**
 
 Use CPU tensors and a private `torch.Generator`. Validate labels, shape, dtype,
 and capacity; sample only initialized slots; include generator state in
 serialization.
 
-- [ ] **Step 5: Compare JAX/PyTorch loss values and gradients**
+- [x] **Step 5: Compare JAX/PyTorch loss values and gradients**
 
 Use float64 diagnostic fixtures and float32 production fixtures with unequal
 positive/negative counts, multiple radii, small scale, and non-uniform weights.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_loss.py tests/torch/test_memory_bank.py tests/parity/test_loss.py`
 
