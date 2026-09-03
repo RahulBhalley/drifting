@@ -75,13 +75,21 @@ def _build_transforms(resolution: int, use_aug: bool, split: str):
     )
 
 
-def _build_imagenet_dataset(*, resolution: int, use_aug: bool, use_cache: bool, split: str):
+def _build_imagenet_dataset(
+    *,
+    resolution: int,
+    use_aug: bool,
+    use_cache: bool,
+    split: str,
+    data_root: str | None = None,
+    cache_root: str | None = None,
+):
     """Create dataset object for one ImageNet split."""
     if use_cache:
-        return LatentDataset(root=os.path.join(IMAGENET_CACHE_PATH, split))
+        return LatentDataset(root=os.path.join(cache_root or IMAGENET_CACHE_PATH, split))
 
     transform = _build_transforms(resolution, use_aug=use_aug, split=split)
-    return ImageFolder(root=os.path.join(IMAGENET_PATH, split), transform=transform)
+    return ImageFolder(root=os.path.join(data_root or IMAGENET_PATH, split), transform=transform)
 
 
 def worker_init_fn(worker_id: int, rank: int) -> None:
@@ -104,6 +112,8 @@ def create_imagenet_split(
     prefetch_factor: int = 2,
     pin_memory: bool = False,
     local: bool | None = None,
+    data_root: str | None = None,
+    cache_root: str | None = None,
 ):
     """Create ImageNet split loader and preprocess/postprocess functions.
 
@@ -118,6 +128,9 @@ def create_imagenet_split(
         prefetch_factor: dataloader prefetch factor.
         pin_memory: dataloader pin_memory.
         local: legacy config field kept for release compatibility; ignored.
+        data_root: optional ImageNet root override; defaults to ``IMAGENET_PATH``.
+        cache_root: optional latent-cache root override; defaults to
+            ``IMAGENET_CACHE_PATH``.
 
     Returns:
         `(loader, preprocess_fn, postprocess_fn)`.
@@ -135,6 +148,8 @@ def create_imagenet_split(
         use_aug=use_aug,
         use_cache=use_cache,
         split=split,
+        data_root=data_root,
+        cache_root=cache_root,
     )
     log_for_0(ds)
 
@@ -249,7 +264,8 @@ def create_dataset_split(
     split: str,
     source: str = "imagenet",
     num_classes: int = 1000,
-    data_root: str = "data",
+    data_root: str | None = None,
+    cache_root: str | None = None,
     download: bool = False,
     fake_size: int = 1024,
     fake_train_size: int | None = None,
@@ -289,6 +305,8 @@ def create_dataset_split(
             prefetch_factor=prefetch_factor,
             pin_memory=pin_memory,
             local=local,
+            data_root=data_root,
+            cache_root=cache_root,
         )
 
     if use_latent or use_cache:
@@ -311,7 +329,7 @@ def create_dataset_split(
         )
     else:
         dataset = CIFAR10(
-            root=data_root,
+            root=data_root or "data",
             train=(split == "train"),
             transform=transform,
             download=download,

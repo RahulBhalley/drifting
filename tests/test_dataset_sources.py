@@ -129,4 +129,29 @@ def test_absent_source_dispatches_to_existing_imagenet_loader(monkeypatch) -> No
         "prefetch_factor": 2,
         "pin_memory": False,
         "local": None,
+        "data_root": None,
+        "cache_root": None,
     }
+
+
+def test_imagenet_data_root_can_override_environment_path(monkeypatch, tmp_path) -> None:
+    received = {}
+    sentinel = object()
+
+    def fake_image_folder(*, root, transform):
+        received["root"] = root
+        received["transform"] = transform
+        return sentinel
+
+    monkeypatch.setattr(dataset_module, "ImageFolder", fake_image_folder)
+
+    result = dataset_module._build_imagenet_dataset(
+        resolution=16,
+        use_aug=False,
+        use_cache=False,
+        split="train",
+        data_root=str(tmp_path),
+    )
+
+    assert result is sentinel
+    assert received["root"] == str(tmp_path / "train")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import os
 import random
 from typing import Any, Callable, Dict, Optional
@@ -19,6 +20,45 @@ class EasyDict(dict):
 
     def __setattr__(self, name: str, value):
         self[name] = value
+
+
+def add_dataset_override_args(parser):
+    """Add optional dataset overrides shared by both training entry points."""
+    parser.add_argument("--dataset-source", choices=("imagenet", "fake", "cifar10"))
+    parser.add_argument("--data-root")
+    parser.add_argument("--cache-root")
+    parser.add_argument("--dataset-resolution", type=int)
+    parser.add_argument("--num-classes", type=int)
+    parser.add_argument(
+        "--download-dataset",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+    )
+    return parser
+
+
+def apply_dataset_overrides(config, args):
+    """Apply only explicitly supplied CLI dataset values to a loaded config."""
+    direct = {
+        "source": getattr(args, "dataset_source", None),
+        "resolution": getattr(args, "dataset_resolution", None),
+        "num_classes": getattr(args, "num_classes", None),
+    }
+    for key, value in direct.items():
+        if value is not None:
+            config.dataset[key] = value
+
+    if "kwargs" not in config.dataset:
+        config.dataset.kwargs = EasyDict()
+    nested = {
+        "data_root": getattr(args, "data_root", None),
+        "cache_root": getattr(args, "cache_root", None),
+        "download": getattr(args, "download_dataset", None),
+    }
+    for key, value in nested.items():
+        if value is not None:
+            config.dataset.kwargs[key] = value
+    return config
 
 
 def _dict_to_easydict(d):

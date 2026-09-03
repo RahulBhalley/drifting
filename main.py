@@ -1,10 +1,13 @@
 import argparse
 
+from utils.misc import add_dataset_override_args
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True, help="Path to YAML config.")
     parser.add_argument("--gen", action="store_true", help="Run generator training loop. Default runs MAE training.")
     parser.add_argument("--workdir", type=str, default="runs", help="Local workdir root for checkpoints/logs.")
+    add_dataset_override_args(parser)
     args = parser.parse_args()
     args.output_dir = args.workdir
 

@@ -27,7 +27,14 @@ from utils.hsdp_util import (
 )
 from utils.init_util import maybe_init_state_params
 from utils.logging import log_for_0, is_rank_zero
-from utils.misc import load_config, prepare_rng, profile_func, run_init
+from utils.misc import (
+    add_dataset_override_args,
+    apply_dataset_overrides,
+    load_config,
+    prepare_rng,
+    profile_func,
+    run_init,
+)
 from utils.model_builder import build_model_dict
 run_init()
 
@@ -490,12 +497,14 @@ def main_gen(config, output_dir="runs"):
 def main(args):
     run_init()
     config = load_config(args.config)
+    apply_dataset_overrides(config, args)
     main_gen(config, output_dir=args.workdir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/gen/latent_ablation.yaml", help="Path to configuration file.")
     parser.add_argument("--workdir", type=str, default="runs", help="Local workdir root for checkpoints/logs.")
+    add_dataset_override_args(parser)
     args = parser.parse_args()
     args.output_dir = args.workdir
 
