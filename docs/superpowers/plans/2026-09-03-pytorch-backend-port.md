@@ -708,7 +708,7 @@ git commit -m "feat: port datasets and latent cache to pytorch"
 - Produces: `train_generator(config, runtime, workdir) -> TrainingSummary`.
 - Produces: `save_training_state` and `load_training_state` with completed-step semantics.
 
-- [ ] **Step 1: Write schedule, step, and resume tests**
+- [x] **Step 1: Write schedule, step, and resume tests**
 
 ```python
 def test_resume_matches_uninterrupted(run_three_steps, run_one_then_resume):
@@ -719,13 +719,13 @@ def test_resume_matches_uninterrupted(run_three_steps, run_one_then_resume):
     assert direct.banks.state_dict_equal(resumed.banks)
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_schedules.py tests/torch/test_generator_step.py tests/torch/test_generator_resume.py`
 
 Expected: training modules missing.
 
-- [ ] **Step 3: Implement matching schedules and AdamW setup**
+- [x] **Step 3: Implement matching schedules and AdamW setup**
 
 ```python
 def learning_rate(step, *, base_lr, warmup_steps, total_steps, schedule):
@@ -747,19 +747,24 @@ loss aggregation, global-norm clipping, optimizer step, EMA order, memory-bank
 push/fill policy, timing metrics, checkpoints, sanity evaluation, CFG sweep,
 and best-FID reporting.
 
-- [ ] **Step 5: Implement exact completed-step checkpoints**
+- [x] **Step 5: Implement exact completed-step checkpoints**
 
 Store model, EMA, optimizer, scheduler, scaler, completed step, seed streams,
 CPU/CUDA/MPS RNG where available, sampler state, both memory banks, and config
 trajectory hash. Validate compatibility before restoration.
 
-- [ ] **Step 6: Compare one JAX/PyTorch optimizer transition**
+- [x] **Step 6: Compare one JAX/PyTorch optimizer transition**
 
 Use converted tiny generator/feature weights, identical fixed images, labels,
 banks, CFG values, noise, and optimizer state. Compare loss terms, gradient
 norm, selected parameter gradients, updated weights, and EMA.
 
-- [ ] **Step 7: Run fake and CIFAR smoke training**
+- [x] **Step 7: Run fake and CIFAR smoke training**
+
+Verified the fake CLI end-to-end on CPU, including native artifact reload and
+finite inference. The CIFAR configuration completed with its replaceable fake
+dataset on CPU; the host did not expose MPS and the upstream CIFAR download was
+stopped and removed after sustaining approximately 17 KB/s.
 
 Run:
 
@@ -773,7 +778,7 @@ drifting-torch-train --config configs/local/m1_cifar10_smoke.yaml \
 Expected: at least one optimizer step, finite metrics, native checkpoint, EMA
 artifact, and successful resume/inference load.
 
-- [ ] **Step 8: Run tests and commit**
+- [x] **Step 8: Run tests and commit**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_schedules.py tests/torch/test_generator_step.py tests/torch/test_generator_resume.py tests/parity/test_generator_step.py`
 
