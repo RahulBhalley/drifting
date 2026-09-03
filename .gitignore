@@ -1,5 +1,6 @@
 runs/
 data/
 wandb/
+.worktrees/
 __pycache__/
 *.pyc
