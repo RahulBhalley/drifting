@@ -1,0 +1,18 @@
+# CPU-compatible subset of requirements.txt for local Apple-silicon inference.
+# The upstream requirements target Colab TPU/Linux and include platform-specific
+# TPU and PyTorch wheel selections that do not install on macOS.
+jax==0.4.37
+jaxlib==0.4.36
+flax==0.10.4
+optax==0.2.5
+orbax-checkpoint==0.11.0
+numpy<2
+ml-dtypes==0.5.4
+tensorstore==0.1.78
+huggingface_hub==1.7.1
+hf-xet==1.4.2
+fsspec==2026.2.0
+msgpack==1.1.2
+Pillow==12.1.1
+PyYAML==6.0.3
+tqdm==4.67.3
