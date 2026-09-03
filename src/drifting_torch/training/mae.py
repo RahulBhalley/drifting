@@ -193,9 +193,11 @@ def _dict(value: Any) -> dict:
 
 
 def _artifact_ema(state: MAETrainState) -> dict[str, Tensor]:
-    values = state.ema
-    if values and all(name.startswith("module.") for name in values):
-        return {name.removeprefix("module."): value for name, value in values.items()}
+    values = {}
+    for name, value in state.ema.items():
+        while name.startswith("module.") or name.startswith("_orig_mod."):
+            name = name.split(".", 1)[1]
+        values[name] = value
     return values
 
 
@@ -207,7 +209,12 @@ def _train_mae(config, runtime, workdir: str | Path, context: DistributedContext
     torch.manual_seed(int(config.train.seed))
     model_config = dict(config.model)
     model_config["num_classes"] = int(config.dataset.num_classes)
-    model = wrap_model(MAEResNet(**model_config), context)
+    model_config["use_bf16"] = context.precision == "bf16"
+    model_config["use_fp16"] = context.precision == "fp16"
+    model = MAEResNet(**model_config)
+    if runtime_values.get("compile", False):
+        model = torch.compile(model)
+    model = wrap_model(model, context)
     optimizer_values = _dict(config.optimizer)
     schedule_values = dict(optimizer_values["lr_schedule"])
     optimizer = build_adamw(

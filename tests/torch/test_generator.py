@@ -149,3 +149,16 @@ def test_bfloat16_compute_keeps_fp32_parameters():
     assert output.noise.x.dtype == torch.bfloat16
     assert next(model.parameters()).dtype == torch.float32
     assert torch.isfinite(output.samples).all()
+
+
+def test_generator_precision_modes_are_mutually_exclusive():
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        DitGen(cond_dim=8, use_bf16=True, use_fp16=True)
+
+
+def test_generator_fp16_mode_is_explicit():
+    model = DitGen(
+        cond_dim=8, num_classes=4, input_size=4, in_channels=2, out_channels=2,
+        patch_size=2, hidden_size=16, depth=1, num_heads=2, use_fp16=True,
+    )
+    assert model.compute_dtype == torch.float16

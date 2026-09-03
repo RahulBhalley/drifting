@@ -91,3 +91,9 @@ def test_mae_gradients_are_finite(tiny_mae):
     gradients = [parameter.grad for parameter in tiny_mae.parameters() if parameter.grad is not None]
     assert gradients
     assert all(torch.isfinite(gradient).all() for gradient in gradients)
+
+
+def test_mae_precision_modes_are_explicit_and_exclusive():
+    assert MAEResNet(base_channels=8, layers=(1, 1, 1, 1), use_fp16=True).compute_dtype == torch.float16
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        MAEResNet(use_bf16=True, use_fp16=True)

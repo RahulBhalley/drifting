@@ -329,6 +329,7 @@ class DitGen(nn.Module):
         use_rope: bool = False,
         use_rmsnorm: bool = False,
         use_bf16: bool = False,
+        use_fp16: bool = False,
         attn_fp32: bool = True,
         use_remat: bool = False,
     ):
@@ -340,7 +341,11 @@ class DitGen(nn.Module):
         self.input_size = input_size
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.compute_dtype = torch.bfloat16 if use_bf16 else torch.float32
+        if use_bf16 and use_fp16:
+            raise ValueError("use_bf16 and use_fp16 are mutually exclusive")
+        self.compute_dtype = (
+            torch.bfloat16 if use_bf16 else torch.float16 if use_fp16 else torch.float32
+        )
         self.class_embed = nn.Embedding(num_classes, cond_dim)
         nn.init.normal_(self.class_embed.weight, std=0.02)
         self.noise_embeds = nn.ModuleList(

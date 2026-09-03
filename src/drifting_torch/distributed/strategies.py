@@ -42,7 +42,13 @@ def wrap_model(model: nn.Module, context: DistributedContext) -> nn.Module:
 
 
 def unwrap_model(model: nn.Module) -> nn.Module:
-    return model.module if hasattr(model, "module") else model
+    while True:
+        if hasattr(model, "module"):
+            model = model.module
+        elif hasattr(model, "_orig_mod"):
+            model = model._orig_mod
+        else:
+            return model
 
 
 def strategy_topology(context: DistributedContext):

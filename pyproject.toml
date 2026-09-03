@@ -8,7 +8,7 @@ version = "0.2.0.dev0"
 description = "Explicit JAX and PyTorch backends for Generative Modeling via Drifting"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 dependencies = [
   "numpy>=1.26,<2",
   "PyYAML>=6.0,<7",
@@ -75,6 +75,14 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.data-files]
+"share/drifting-models/configs/gen" = ["configs/gen/*.yaml"]
+"share/drifting-models/configs/mae" = ["configs/mae/*.yaml"]
+"share/drifting-models/configs/local" = ["configs/local/*.yaml"]
+"share/drifting-models/configs/runtime/jax" = ["configs/runtime/jax/*.yaml"]
+"share/drifting-models/configs/runtime/torch" = ["configs/runtime/torch/*.yaml"]
+"share/drifting-models/notebooks/torch" = ["notebooks/torch/*.ipynb"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

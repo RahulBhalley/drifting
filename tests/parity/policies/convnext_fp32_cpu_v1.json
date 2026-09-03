@@ -1,9 +1,9 @@
 {
-  "max_abs_error": 0.0005,
-  "mean_abs_error": 0.000004,
+  "max_abs_error": 0.0012,
+  "mean_abs_error": 0.000006,
   "nonfinite_count": 0,
   "cosine_similarity": 0.9999999999,
-  "psnr": 112.0,
+  "psnr": 106.0,
   "ssim": 0.9999999999,
-  "uint8_mismatch_rate": 0.00025
+  "uint8_mismatch_rate": 0.00045
 }

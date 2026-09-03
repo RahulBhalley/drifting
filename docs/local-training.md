@@ -1,11 +1,13 @@
 # Local Training on Apple Silicon
 
-This guide provides two separate local workflows:
+This guide provides three separate local workflows:
 
 1. the authors' complete PyTorch toy notebook, covering Swiss roll and
    checkerboard training; and
 2. the released JAX generator-training pipeline with a deliberately tiny model
-   and either deterministic fake images or resized CIFAR-10.
+   and either deterministic fake images or resized CIFAR-10; and
+3. the native PyTorch generator, MAE, inference notebook, and replacement-data
+   workflows documented in [PyTorch Backend](pytorch.md).
 
 The local JAX runs validate dataset loading, model construction, the drifting
 loss, an optimizer update, and checkpoint writing. They are not ImageNet
@@ -145,6 +147,15 @@ still requires the reference statistics configured in `utils/env.py`.
 The local fake/CIFAR configs set `train.enable_eval: false` because the release
 only provides an ImageNet-256 FID reference path. Do not interpret their losses
 as FID, image quality, or benchmark parity.
+
+The same unchanged local scientific configs can be composed with PyTorch:
+
+```bash
+drifting-torch-train --config configs/local/m1_fake_smoke.yaml \
+  --runtime configs/runtime/torch/cpu.yaml --workdir runs/torch-fake
+drifting-torch-train-mae --config configs/local/m1_fake_mae_smoke.yaml \
+  --runtime configs/runtime/torch/cpu.yaml --workdir runs/torch-mae-fake
+```
 
 ## Outputs
 

@@ -84,9 +84,9 @@ def save_training_state(
         "schema_version": 1,
         "completed_steps": state.completed_steps,
         "trajectory_hash": trajectory_hash(config),
-        "model": state.model.state_dict(),
+        "model": None if context.distributed else state.model.state_dict(),
         "ema": state.ema,
-        "optimizer": state.optimizer.state_dict(),
+        "optimizer": None if context.distributed else state.optimizer.state_dict(),
         "scaler": None if state.scaler is None else state.scaler.state_dict(),
         "generator_state": state.generator.get_state(),
         "rng": _rng_state(),
@@ -101,11 +101,22 @@ def save_training_state(
         },
     }
     if context.distributed:
+        import torch.distributed.checkpoint as dcp
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, get_state_dict
+
         staging = path.with_name(f".{path.name}.staging")
         published = path.with_name(f"{path.name}.shards")
         if context.is_main:
             staging.mkdir(parents=False, exist_ok=False)
         context.barrier()
+        options = StateDictOptions(full_state_dict=False, cpu_offload=True)
+        model_state, optimizer_state = get_state_dict(
+            state.model, state.optimizer, options=options
+        )
+        dcp.save(
+            {"model": model_state, "optimizer": optimizer_state},
+            checkpoint_id=staging / "dcp",
+        )
         shard = staging / f"rank-{context.rank:05d}.pt"
         temporary_shard = staging / f".rank-{context.rank:05d}.tmp-{os.getpid()}"
         torch.save(payload, temporary_shard)
@@ -115,6 +126,8 @@ def save_training_state(
             expected = [staging / f"rank-{rank:05d}.pt" for rank in range(context.world_size)]
             if not all(item.is_file() and item.stat().st_size > 0 for item in expected):
                 raise RuntimeError("not all distributed checkpoint shards were written")
+            if not (staging / "dcp" / ".metadata").is_file():
+                raise RuntimeError("PyTorch distributed checkpoint metadata was not written")
             os.replace(staging, published)
             manifest = {
                 "schema_version": 2,
@@ -124,6 +137,7 @@ def save_training_state(
                 "precision": context.precision,
                 "trajectory_hash": trajectory_hash(config),
                 "shards": published.name,
+                "dcp": "dcp",
             }
             temporary_manifest = path.with_name(f".{path.name}.tmp-{os.getpid()}")
             temporary_manifest.write_text(
@@ -173,16 +187,41 @@ def load_training_state(
         context.barrier()
         shard_path = path.with_name(manifest["shards"]) / f"rank-{context.rank:05d}.pt"
         payload = torch.load(shard_path, map_location="cpu", weights_only=False)
+        import torch.distributed.checkpoint as dcp
+        from torch.distributed.checkpoint.state_dict import (
+            StateDictOptions,
+            get_state_dict,
+            set_state_dict,
+        )
+
+        options = StateDictOptions(full_state_dict=False, cpu_offload=True)
+        model_state, optimizer_state = get_state_dict(
+            state.model, state.optimizer, options=options
+        )
+        dcp.load(
+            {"model": model_state, "optimizer": optimizer_state},
+            checkpoint_id=path.with_name(manifest["shards"]) / manifest["dcp"],
+        )
+        set_state_dict(
+            state.model,
+            state.optimizer,
+            model_state_dict=model_state,
+            optim_state_dict=optimizer_state,
+            options=options,
+        )
+        loaded_distributed_state = True
     else:
         if context.distributed:
             raise ValueError("single-process checkpoint cannot resume a distributed run")
         payload = torch.load(path, map_location="cpu", weights_only=False)
+        loaded_distributed_state = False
     if payload.get("schema_version") != 1:
         raise ValueError("unsupported training-state schema version")
     if payload["trajectory_hash"] != trajectory_hash(config):
         raise ValueError("training trajectory configuration hash does not match")
-    state.model.load_state_dict(payload["model"], strict=True)
-    state.optimizer.load_state_dict(payload["optimizer"])
+    if not loaded_distributed_state:
+        state.model.load_state_dict(payload["model"], strict=True)
+        state.optimizer.load_state_dict(payload["optimizer"])
     state.ema = {
         name: value.to(next(state.model.parameters()).device)
         for name, value in payload["ema"].items()

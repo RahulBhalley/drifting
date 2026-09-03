@@ -257,6 +257,7 @@ class MAEResNet(nn.Module):
         dropout_prob: float = 0.0,
         layers: Iterable[int] = (2, 2, 2, 2),
         use_bf16: bool = False,
+        use_fp16: bool = False,
         input_patch_size: int = 1,
     ):
         super().__init__()
@@ -269,9 +270,14 @@ class MAEResNet(nn.Module):
         self.patch_size = patch_size
         self.dropout_prob = dropout_prob
         self.layers = layers
+        if use_bf16 and use_fp16:
+            raise ValueError("use_bf16 and use_fp16 are mutually exclusive")
         self.use_bf16 = use_bf16
+        self.use_fp16 = use_fp16
         self.input_patch_size = input_patch_size
-        self.compute_dtype = torch.bfloat16 if use_bf16 else torch.float32
+        self.compute_dtype = (
+            torch.bfloat16 if use_bf16 else torch.float16 if use_fp16 else torch.float32
+        )
         patched_channels = in_channels * input_patch_size**2
         self.encoder = ResNetEncoder(
             patched_channels,

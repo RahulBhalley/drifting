@@ -1052,7 +1052,7 @@ git commit -m "feat: add pytorch distributed execution"
 - Produces a clean source distribution and wheel containing all three packages,
   runtime configs, and required metadata.
 
-- [ ] **Step 1: Write preservation and packaging tests**
+- [x] **Step 1: Write preservation and packaging tests**
 
 ```python
 def test_original_configs_and_notebook_match_recorded_hashes():
@@ -1064,26 +1064,26 @@ def test_wheel_imports_from_outside_checkout(built_wheel, clean_venv):
     clean_venv.run("python", "-c", "import drifting_common, drifting_torch")
 ```
 
-- [ ] **Step 2: Verify new tests fail**
+- [x] **Step 2: Verify new tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/test_packaging.py tests/test_preserved_sources.py`
 
 Expected: preservation manifest and final package inspection are absent.
 
-- [ ] **Step 3: Write user and developer documentation**
+- [x] **Step 3: Write user and developer documentation**
 
 Document separate installations/commands, source layouts, scientific/runtime
 config composition, JAX conversion, pixel/latent inference, generator/MAE
 training, fake/CIFAR replacement, ImageNet paths, latent cache, metrics,
 distributed launch, exact resume boundary, notebook use, and parity reports.
 
-- [ ] **Step 4: Execute both notebooks from derived copies**
+- [x] **Step 4: Execute both notebooks from derived copies**
 
 Run the unchanged toy notebook and the PyTorch inference notebook in isolated
 Jupyter directories. Assert finite outputs and expected shapes. Keep executed
 copies under `work/verification/notebooks`, excluded from source control.
 
-- [ ] **Step 5: Run comprehensive local verification**
+- [x] **Step 5: Run comprehensive local verification**
 
 Run:
 
@@ -1103,7 +1103,7 @@ Run the fake and CIFAR-10 generator smoke commands, a tiny MAE smoke run, native
 checkpoint resume, official pixel/latent inference comparison, and two-process
 CPU checkpoint test. Record exact commands and outputs in `docs/parity.md`.
 
-- [ ] **Step 6: Inspect built artifacts and import isolation**
+- [x] **Step 6: Inspect built artifacts and import isolation**
 
 Verify the original toy notebook remains byte-for-byte identical. Verify
 wheel/sdist contents exclude `.venv*`, `work/`, outputs, caches,
@@ -1111,13 +1111,13 @@ checkpoints, downloaded weights, executed notebooks, and bytecode. Install JAX
 and PyTorch extras in separate clean environments and verify neither imports the
 other backend package during its CLI startup.
 
-- [ ] **Step 7: Perform requirement-by-requirement completion audit**
+- [x] **Step 7: Perform requirement-by-requirement completion audit**
 
 For every acceptance criterion in the design spec, link an authoritative test,
 command output, artifact hash/report, or explicitly unverified hardware/scale
 boundary. Any missing evidence keeps the port incomplete.
 
-- [ ] **Step 8: Clean temporary artifacts and commit**
+- [x] **Step 8: Clean temporary artifacts and commit**
 
 Remove only task-created caches, downloads, build directories, test outputs,
 and derived notebooks after retaining the requested reports. Verify exact paths

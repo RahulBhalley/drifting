@@ -1,0 +1,14 @@
+{
+  "configs/gen/latent_ablation.yaml": "edbe21c9eee31e3b81ed8b0c9b3732d2725a4f039f1bd0fc0e7ff32b651e93e0",
+  "configs/gen/latent_sota_B.yaml": "6e784ab064ccbc079060ebab1291ba6915a289a0e2b804e6a2d26855644e1748",
+  "configs/gen/latent_sota_L.yaml": "59e4b6c54c343146df910f014244eeb968a67aa0999ab0b53b20ce3c7b6307f7",
+  "configs/gen/pixel_sota_B.yaml": "c81ca0673b3e54914025936a9c1f6b1a67e926242468e936a6208c7e3a6e0bf4",
+  "configs/gen/pixel_sota_L.yaml": "e05c5fa840fe0072513624408587aa4769170d20efa0f240d80bb42bde092f4d",
+  "configs/local/m1_cifar10_smoke.yaml": "64fd366df93596370d0a530334f8d7541a2f7c57ec17f38df117d9b3d68a51a9",
+  "configs/local/m1_fake_mae_smoke.yaml": "f3fca9281dc20b54c9b8922c1cf45f9354ec6ded0eb9f1fd6b0b187c2a4e7c32",
+  "configs/local/m1_fake_smoke.yaml": "b9148c5f661092c7cf49ce895400bbbfe75250d2f25c62f4cf6650c5bd7aa61a",
+  "configs/mae/latent_640.yaml": "3833164b30804c4aa91c006d5343d246a8971dbb1fb180ec75516d54b09847f2",
+  "configs/mae/latent_ablation_256.yaml": "db3d2d61accf2b86394393472464a40eb4ceadee442b9a30a5e64dae3ac60131",
+  "configs/mae/pixel_640.yaml": "60848b258619375be79332dfea7794cd7b58baaa42e6050a4663b6843e62d335",
+  "notebooks/drifting_model_demo_original.ipynb": "1376e917052223d1cfbdfbd9fb3b7cbc26e59d3a05ef53280111a3099abe5931"
+}

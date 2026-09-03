@@ -1,4 +1,4 @@
-# Generative Modeling via Drifting — JAX Release
+# Generative Modeling via Drifting — JAX and PyTorch
 
 <p align="center">
   <a href="http://arxiv.org/abs/2602.04770"><img src="https://img.shields.io/badge/arXiv-2602.04770-b31b1b.svg" alt="arXiv" /></a>
@@ -10,8 +10,29 @@
   <img src="assets/teaser_main.png" width="90%" alt="Drifting Models overview" />
 </p>
 
-Official JAX codebase for the ImageNet experiments of *Generative Modeling via Drifting*.
-We provide training, inference, and pretrained weights for one-step image generation on ImageNet 256×256.
+This fork preserves the official JAX codebase for *Generative Modeling via
+Drifting* and adds a separately selected, native PyTorch backend. Shared
+scientific YAML remains under `configs/`; machine/runtime policy lives under
+`configs/runtime/{jax,torch}`. No command silently chooses a backend.
+
+Install one backend (or both for parity work):
+
+```bash
+pip install -e '.[jax]'
+pip install -e '.[torch]'
+pip install -e '.[parity,dev]'
+```
+
+The primary commands are `drifting-jax-{train,infer,cache}` and
+`drifting-torch-{train,train-mae,infer,cache}`. See
+[PyTorch usage](docs/pytorch.md), [parity evidence](docs/parity.md), and
+[distributed execution](docs/distributed.md). The exact local verification
+boundary is recorded in the [completion audit](docs/completion-audit.md).
+
+The PyTorch inference notebook is
+[`notebooks/torch/inference_demo.ipynb`](notebooks/torch/inference_demo.ipynb).
+The downloaded Colab toy notebook is retained byte-for-byte as
+[`notebooks/drifting_model_demo_original.ipynb`](notebooks/drifting_model_demo_original.ipynb).
 
 ## Generated Samples
 
