@@ -55,7 +55,7 @@
 - Produces: `sha256_file(path: Path) -> str`
 - Produces: immutable `DatasetContract` and `MetricResult` dataclasses.
 
-- [ ] **Step 1: Write import-isolation and configuration tests**
+- [x] **Step 1: Write import-isolation and configuration tests**
 
 ```python
 def test_common_imports_no_tensor_backend(monkeypatch):
@@ -72,13 +72,13 @@ def test_compose_config_precedence(tmp_path):
     assert cfg.runtime.device == "cpu"
 ```
 
-- [ ] **Step 2: Run the common tests and verify failure**
+- [x] **Step 2: Run the common tests and verify failure**
 
 Run: `.venv-training/bin/python -m pytest -q tests/common`
 
 Expected: collection fails because `drifting_common` does not exist.
 
-- [ ] **Step 3: Add packaging and typed configuration composition**
+- [x] **Step 3: Add packaging and typed configuration composition**
 
 ```python
 def compose_config(scientific_path, runtime_path=None, overrides=()):
@@ -96,7 +96,7 @@ dataset, optimizer, training, logging, and runtime keys. Treat `hsdp_dim` as a
 legacy JAX-only input field. The loader composes scientific YAML, runtime YAML,
 then CLI overrides in that order.
 
-- [ ] **Step 4: Add versioned artifact and result records**
+- [x] **Step 4: Add versioned artifact and result records**
 
 ```python
 @dataclass(frozen=True)
@@ -115,9 +115,9 @@ class ArtifactManifest:
 Write JSON atomically with a sibling temporary file followed by `os.replace`.
 Validate schema version, hashes, relative paths, and non-negative step.
 
-- [ ] **Step 5: Run tests and packaging checks**
+- [x] **Step 5: Run tests and packaging checks**
 
-Run: `.venv-training/bin/python -m pip install -e . --no-deps`
+Run: `uv pip install --python .venv-training/bin/python -e . --no-deps`
 
 Run: `.venv-training/bin/python -m pytest -q tests/common`
 
@@ -125,7 +125,7 @@ Run: `.venv-training/bin/python -c "import drifting_common; import sys; assert '
 
 Expected: all pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add pyproject.toml src/drifting_common configs/runtime tests/common

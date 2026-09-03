@@ -1,0 +1,8 @@
+backend: torch
+device: mps
+strategy: single
+precision: fp32
+compile: false
+replicate_size: 1
+shard_size: 1
+
