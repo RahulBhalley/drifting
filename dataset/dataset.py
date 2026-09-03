@@ -1,7 +1,7 @@
-"""ImageNet-only dataset pipeline for Drift release.
+"""Dataset pipelines for the Drifting release.
 
-This module exposes one primary loader constructor:
-`create_imagenet_split(resolution, use_aug, use_latent, use_cache, ...)`.
+``create_imagenet_split`` retains the original ImageNet implementation.
+``create_dataset_split`` dispatches to ImageNet or local pixel-only datasets.
 
 Flag meanings:
 - `use_aug`: enable stronger pixel-space augmentation in train split.
@@ -23,7 +23,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torchvision import transforms
-from torchvision.datasets import ImageFolder
+from torchvision.datasets import CIFAR10, FakeData, ImageFolder
 
 from dataset.latent import LatentDataset
 from dataset.vae import vae_enc_decode
@@ -183,6 +183,149 @@ def create_imagenet_split(
         return jnp.clip((images + 1) / 2, 0, 1).transpose(0, 3, 1, 2)
 
     return loader, preprocess_fn, postprocess_fn
+
+
+def _build_pixel_transform(*, resolution: int, use_aug: bool, split: str):
+    operations = [
+        transforms.Resize((resolution, resolution), interpolation=transforms.InterpolationMode.BICUBIC),
+    ]
+    if use_aug and split == "train":
+        operations.append(transforms.RandomHorizontalFlip())
+    operations.extend(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+        ]
+    )
+    return transforms.Compose(operations)
+
+
+def _create_pixel_loader(
+    dataset,
+    *,
+    batch_size: int,
+    split: str,
+    num_workers: int,
+    prefetch_factor: int,
+    pin_memory: bool,
+):
+    rank = jax.process_index()
+    sampler = DistributedSampler(
+        dataset,
+        num_replicas=jax.process_count(),
+        rank=rank,
+        shuffle=(split == "train"),
+    )
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        drop_last=(split == "train"),
+        worker_init_fn=partial(worker_init_fn, rank=rank),
+        sampler=sampler,
+        num_workers=num_workers,
+        prefetch_factor=(prefetch_factor if num_workers > 0 else None),
+        pin_memory=pin_memory,
+        persistent_workers=(num_workers > 0),
+    )
+
+    def preprocess_fn(batch, rng=jax.random.PRNGKey(0)):
+        del rng
+        image, label = batch
+        return {
+            "images": jnp.asarray(image).transpose(0, 2, 3, 1),
+            "labels": jnp.asarray(label, dtype=jnp.int32),
+        }
+
+    def postprocess_fn(images):
+        return jnp.clip((images + 1) / 2, 0, 1).transpose(0, 3, 1, 2)
+
+    return loader, preprocess_fn, postprocess_fn
+
+
+def create_dataset_split(
+    *,
+    resolution: int,
+    batch_size: int,
+    split: str,
+    source: str = "imagenet",
+    num_classes: int = 1000,
+    data_root: str = "data",
+    download: bool = False,
+    fake_size: int = 1024,
+    fake_train_size: int | None = None,
+    fake_val_size: int | None = None,
+    use_aug: bool = False,
+    use_latent: bool = False,
+    use_cache: bool = False,
+    num_workers: int = 4,
+    prefetch_factor: int = 2,
+    pin_memory: bool = False,
+    local: bool | None = None,
+):
+    """Create an ImageNet, deterministic fake, or resized CIFAR-10 split."""
+    source = str(source).strip().lower()
+    supported = ("imagenet", "fake", "cifar10")
+    if source not in supported:
+        raise ValueError(f"Unsupported dataset source {source!r}. Supported sources: {', '.join(supported)}")
+    if split not in {"train", "val"}:
+        raise ValueError("split must be 'train' or 'val'")
+    for name, value in (
+        ("resolution", resolution),
+        ("batch_size", batch_size),
+        ("num_classes", num_classes),
+    ):
+        if int(value) <= 0:
+            raise ValueError(f"{name} must be positive")
+
+    if source == "imagenet":
+        return create_imagenet_split(
+            resolution=resolution,
+            batch_size=batch_size,
+            split=split,
+            use_aug=use_aug,
+            use_latent=use_latent,
+            use_cache=use_cache,
+            num_workers=num_workers,
+            prefetch_factor=prefetch_factor,
+            pin_memory=pin_memory,
+            local=local,
+        )
+
+    if use_latent or use_cache:
+        raise ValueError(f"Dataset source {source!r} is pixel-only; latent encoding and caches are unsupported")
+    if source == "cifar10" and int(num_classes) != 10:
+        raise ValueError("CIFAR-10 requires exactly 10 classes")
+
+    transform = _build_pixel_transform(resolution=resolution, use_aug=use_aug, split=split)
+    if source == "fake":
+        selected_size = fake_train_size if split == "train" else fake_val_size
+        selected_size = fake_size if selected_size is None else selected_size
+        if int(selected_size) <= 0:
+            raise ValueError("fake_size for the selected split must be positive")
+        dataset = FakeData(
+            size=int(selected_size),
+            image_size=(3, resolution, resolution),
+            num_classes=int(num_classes),
+            transform=transform,
+            random_offset=0 if split == "train" else 1_000_000,
+        )
+    else:
+        dataset = CIFAR10(
+            root=data_root,
+            train=(split == "train"),
+            transform=transform,
+            download=download,
+        )
+
+    log_for_0(dataset)
+    return _create_pixel_loader(
+        dataset,
+        batch_size=batch_size,
+        split=split,
+        num_workers=num_workers,
+        prefetch_factor=prefetch_factor,
+        pin_memory=pin_memory,
+    )
 
 
 def get_postprocess_fn(*, use_aug: bool = False, use_latent: bool = False, use_cache: bool = False, has_clip: bool = True):
