@@ -914,7 +914,7 @@ git commit -m "feat: add pytorch inference workflow"
 - Produces: `compute_statistics(samples, valid_mask, options) -> InceptionStatistics`.
 - Produces: `evaluate_generator(...) -> MetricResult`.
 
-- [ ] **Step 1: Write finite, masking, and duplicate-removal tests**
+- [x] **Step 1: Write finite, masking, and duplicate-removal tests**
 
 ```python
 def test_padding_does_not_change_statistics(evaluator, images):
@@ -924,32 +924,32 @@ def test_padding_does_not_change_statistics(evaluator, images):
     assert_statistics_close(base, evaluator.statistics(padded, mask))
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_evaluation.py tests/parity/test_evaluation.py`
 
 Expected: evaluation modules missing.
 
-- [ ] **Step 3: Port the exact released Inception/evaluation semantics**
+- [x] **Step 3: Port the exact released Inception/evaluation semantics**
 
 Match resize, input range, convolution/pool padding, feature/logit selection,
 float64 mean/covariance, Frechet calculation, fixed IS permutation/splits, and
 the released manifold precision/recall algorithm. Convert the same Inception
 weights by named rules rather than substituting an unverified library metric.
 
-- [ ] **Step 4: Add duplicate-safe distributed aggregation**
+- [x] **Step 4: Add duplicate-safe distributed aggregation**
 
 Gather validity masks with logits/features, apply masks before truncating to
 `num_samples`, and calculate/log metrics only once. Preview images are rank-zero
 side effects.
 
-- [ ] **Step 5: Compare JAX/PyTorch features and metrics**
+- [x] **Step 5: Compare JAX/PyTorch features and metrics**
 
 Use deterministic image fixtures to compare resize output, selected internal
 Inception activations, final logits/features, means, covariances, FID, IS, and
 precision/recall. Use a singular-covariance fixture to cover epsilon fallback.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_evaluation.py tests/parity/test_evaluation.py`
 
