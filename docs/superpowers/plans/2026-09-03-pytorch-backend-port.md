@@ -500,7 +500,7 @@ git commit -m "feat: port mae feature encoder to pytorch"
 - Produces: `build_activation_function(config, postprocess_fn) -> FrozenFeatureExtractor`.
 - `FrozenFeatureExtractor.forward(images) -> dict[str, Tensor]` returns detached reference activations only when explicitly requested; generated-image activations remain differentiable.
 
-- [ ] **Step 1: Write freezing and gradient-flow tests**
+- [x] **Step 1: Write freezing and gradient-flow tests**
 
 ```python
 def test_feature_weights_frozen_but_input_gradient_flows(extractor):
@@ -510,19 +510,19 @@ def test_feature_weights_frozen_but_input_gradient_flows(extractor):
     assert all(p.grad is None for p in extractor.parameters())
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_features.py tests/parity/test_convnext.py`
 
 Expected: feature modules missing.
 
-- [ ] **Step 3: Implement native ConvNeXtV2 activation adapter**
+- [x] **Step 3: Implement native ConvNeXtV2 activation adapter**
 
 Load the same Hugging Face model revision as the JAX conversion path, freeze its
 parameters, preserve normalization/preprocessing and activation names, and
 return `(B,T,C)` values.
 
-- [ ] **Step 4: Implement MAE plus ConvNeXt composition**
+- [x] **Step 4: Implement MAE plus ConvNeXt composition**
 
 ```python
 def forward(self, images: Tensor) -> dict[str, Tensor]:
@@ -534,12 +534,12 @@ def forward(self, images: Tensor) -> dict[str, Tensor]:
     return outputs
 ```
 
-- [ ] **Step 5: Compare fixed-image ConvNeXt activations**
+- [x] **Step 5: Compare fixed-image ConvNeXt activations**
 
 Run JAX-converted and native PyTorch paths on the same postprocessed images.
 Compare every requested stage after layout/token conversion.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_features.py tests/parity/test_convnext.py`
 
