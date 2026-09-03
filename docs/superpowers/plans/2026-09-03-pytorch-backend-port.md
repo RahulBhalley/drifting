@@ -340,7 +340,7 @@ git commit -m "feat: port drifting generator to pytorch"
 - Produces: `load_torch_generator(source: str | Path, device: torch.device) -> LoadedGenerator`.
 - Produces: `compare_tensors(reference, candidate, policy) -> TensorComparison`.
 
-- [ ] **Step 1: Write exhaustive mapping tests**
+- [x] **Step 1: Write exhaustive mapping tests**
 
 ```python
 def test_dense_kernel_transposes():
@@ -353,13 +353,13 @@ def test_converter_rejects_unmapped_source():
         map_state({"unknown/kernel": np.ones((2, 2))}, EXPECTED_TARGET)
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [x] **Step 2: Verify tests fail**
 
 Run: `.venv-training/bin/python -m pytest -q tests/torch/test_checkpoint_mapping.py`
 
 Expected: converter imports fail.
 
-- [ ] **Step 3: Implement named mapping and safe artifact export**
+- [x] **Step 3: Implement named mapping and safe artifact export**
 
 ```python
 def convert_leaf(rule: TensorRule, value: np.ndarray) -> np.ndarray:
@@ -376,13 +376,13 @@ Export EMA weights as safetensors, write the Task 1 manifest and SHA-256 values,
 and refuse output publication until the model accepts the entire mapped state
 with no missing or unexpected keys.
 
-- [ ] **Step 4: Add tiny full-generator parity**
+- [x] **Step 4: Add tiny full-generator parity**
 
 Initialize a tiny JAX generator, convert its full tree, supply fixed noise and
 noise labels, and compare conditioning, every block output, pre-unpatchified
 output, and final NCHW result. Use hooks/debug returns only in test mode.
 
-- [ ] **Step 5: Convert and compare official pixel and latent artifacts**
+- [x] **Step 5: Convert and compare official pixel and latent artifacts**
 
 Run:
 
@@ -393,24 +393,25 @@ JAX_PLATFORMS=cpu .venv-training/bin/python tools/compare_backends.py \
   --artifact work/converted/pixel_B_sota --labels 95 --seed 0 --report work/parity/pixel_B_sota.json
 ```
 
-Repeat for `hf://latent_B_sota`. Capture shared noise as NumPy, compare raw model
-outputs after layout conversion, then compare decoded/postprocessed images.
+Repeat for `hf://latent_B_sota`. Capture shared noise as NumPy and compare raw
+model outputs after layout conversion. Compare pixel postprocessing here;
+latent VAE decoding parity is completed in Task 8 after both codecs exist.
 
-- [ ] **Step 6: Set empirical tolerance policy**
+- [x] **Step 6: Set empirical tolerance policy**
 
 Write measured FP32 CPU thresholds into a versioned JSON policy under
 `tests/parity/policies/`. The policy includes max/mean absolute error,
 non-finite counts, cosine similarity, PSNR, SSIM, and uint8 mismatch bounds.
 Tests must fail closed when a metric is absent or non-finite.
 
-- [ ] **Step 7: Run converter and parity tests**
+- [x] **Step 7: Run converter and parity tests**
 
 Run: `JAX_PLATFORMS=cpu .venv-training/bin/python -m pytest -q tests/torch/test_checkpoint_mapping.py tests/parity/test_generator_model.py tests/parity/test_official_generator.py`
 
 Expected: all mappings consumed exactly once and official comparisons satisfy
 the measured policy.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/drifting_torch/checkpointing src/drifting_torch/parity.py tools tests/torch/test_checkpoint_mapping.py tests/parity

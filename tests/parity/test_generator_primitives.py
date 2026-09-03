@@ -64,6 +64,18 @@ def test_rms_norm_parity():
     assert_fp32_close(torch_value, jax_value, name="rms_norm")
 
 
+def test_rms_norm_bfloat16_precision_boundary_parity():
+    x = np.random.default_rng(14).normal(size=(2, 5, 8)).astype(np.float32)
+    torch_norm = RMSNorm(8)
+    jax_norm = JaxRMSNorm(8)
+    jax_x = jnp.asarray(x, dtype=jnp.bfloat16)
+    variables = jax_norm.init(jax.random.PRNGKey(0), jax_x)
+
+    torch_value = torch_norm(torch.from_numpy(x).bfloat16()).float().detach().numpy()
+    jax_value = jax_norm.apply(variables, jax_x).astype(jnp.float32)
+    assert_fp32_close(torch_value, jax_value, name="rms_norm_bfloat16", rtol=0, atol=0)
+
+
 def test_rope_parity():
     rng = np.random.default_rng(13)
     q = rng.normal(size=(2, 7, 3, 8)).astype(np.float32)

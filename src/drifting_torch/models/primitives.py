@@ -49,10 +49,11 @@ class RMSNorm(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         input_dtype = x.dtype
-        variance = x.float().square().mean(dim=-1, keepdim=True)
-        normalized = x * torch.rsqrt(variance + self.eps).to(input_dtype)
+        value = x.float()
+        variance = value.square().mean(dim=-1, keepdim=True)
+        normalized = value * torch.rsqrt(variance + self.eps)
         if self.weight is not None:
-            normalized = normalized * self.weight.to(input_dtype)
+            normalized = normalized * self.weight.float()
         return normalized.to(input_dtype)
 
 
